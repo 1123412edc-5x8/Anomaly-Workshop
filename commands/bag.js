@@ -12,6 +12,7 @@ const createBar = (current, max) => {
 
 module.exports = {
     name: 'bag',
+    aliases: ['b', '背包', 'ls', 'bag'],
     execute: async (message) => {
         const data = db.read();
         const userId = message.author.id;

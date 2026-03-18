@@ -3,6 +3,7 @@ const db = require('../utils/db');
 
 module.exports = {
     name: 'combine',
+    aliases: ['c', '合成', 'combine'],
     execute: async (message) => {
         const args = message.content.split(' ');
         if (args.length < 3) return message.reply('❌ 格式錯誤！請輸入 `!combine [物品1序號] [物品2序號]`（序號從 0 開始）');

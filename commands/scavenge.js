@@ -1,25 +1,47 @@
+const { EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
+const itemWiki = require('../utils/items');
 
 module.exports = {
     name: 'scavenge',
-        execute: async (message) => {
-                let data = db.read();
-                        const userId = message.author.id;
-                                
-                                        // 簡單的隨機零件名
-                                                const names = ['生鏽螺絲', '廢棄電路板', '扭曲的鋼樑', '不明發光液體'];
-                                                        const randomName = names[Math.floor(Math.random() * names.length)];
-                                                                
-                                                                        const newItem = {
-                                                                                    name: randomName,
-                                                                                                durability: Math.floor(Math.random() * 50) + 10,
-                                                                                                            entropy: Math.floor(Math.random() * 20)
-                                                                                                                    };
+    aliases: ['s', '拾荒'],
+    execute: async (message) => {
+        const userId = message.author.id;
+        let data = db.read();
 
-                                                                                                                            if (!data.players[userId]) data.players[userId] = { inventory: [] };
-                                                                                                                                    data.players[userId].inventory.push(newItem);
-                                                                                                                                            db.write(data);
+        // 1. 確定玩家位置 (如果沒移動過，預設在工廠)
+        if (!data.players[userId]) {
+            data.players[userId] = { inventory: [], currentLocation: '工廠' };
+        }
+        const loc = data.players[userId].currentLocation || '工廠';
+        
+        // 2. 從對應地圖的 50 種物品中抽一個
+        const region = itemWiki[loc];
+        const randomItemName = region.items[Math.floor(Math.random() * region.items.length)];
 
-                                                                                                                                                    message.reply(`🔍 你在廢墟中翻找，撿到了 **${randomName}**！ (使用 \`!bag\` 查看)`);
-                                                                                                                                                        }
-                                                                                                                                                        };
+        // 3. 建立物品物件
+        const newItem = {
+            name: randomItemName,
+            origin: loc, // 紀錄產地，合成時會用到
+            durability: Math.floor(Math.random() * 41) + 20, // 20~60%
+            entropy: Math.floor(Math.random() * 11)         // 0~10
+        };
+
+        // 4. 存入背包
+        data.players[userId].inventory.push(newItem);
+        db.write(data);
+
+        // 5. 顯示精美 Embed
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 拾荒回報：${loc}`)
+            .setDescription(`你在廢墟中翻找，尋獲了 **${newItem.name}**！`)
+            .addFields(
+                { name: '🔋 耐久度', value: `\`${newItem.durability}%\``, inline: true },
+                { name: '🌀 熵值', value: `\`${newItem.entropy}\``, inline: true }
+            )
+            .setColor(region.color)
+            .setFooter({ text: `輸入 ~map 切換地區 | 目前地區物品數：${region.items.length}` });
+
+        message.reply({ embeds: [embed] });
+    }
+};
