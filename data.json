@@ -1,0 +1,13 @@
+{
+  "players": {
+    "1292424394957918248": {
+      "inventory": [
+        {
+          "name": "老舊鐵鎚",
+          "durability": 30,
+          "entropy": 5
+        }
+      ]
+    }
+  }
+}
