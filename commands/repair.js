@@ -3,34 +3,42 @@ const db = require('../utils/db');
 
 module.exports = {
     name: 'repair',
-    aliases: ['r', '維修'], // 支援縮寫 ~r
+    aliases: ['r', '維修'], // 支援 ~r 縮寫
     execute: async (message, args) => {
         const userId = message.author.id;
         let data = db.read();
 
-        // 1. 基本檢查與編號選擇
-        if (!data.players[userId] || data.players[userId].inventory.length === 0) {
-            return message.reply('❌ 你的工坊裡沒有任何零件。請先輸入 `~s` 拾荒。');
+        // 1. 初始化檢查：確保玩家資料存在
+        if (!data.players[userId]) {
+            data.players[userId] = { inventory: [], currentLocation: '工廠' };
+            db.write(data);
         }
 
         const player = data.players[userId];
-        
-        // 取得玩家輸入的編號 (例如 ~r 1)，若沒輸入則預設維修第 0 個
-        const itemIndex = parseInt(args[0]) || 0;
-        const item = player.inventory[itemIndex];
 
-        if (!item) {
-            return message.reply(`❌ 找不到編號為 \`[${itemIndex}]\` 的零件。請使用 \`~b\` 確認背包編號。`);
+        // 2. 背包空置檢查
+        if (!player.inventory || player.inventory.length === 0) {
+            return message.reply('🎒 **你的背包是空的！** 請先使用 `~s` 拾荒獲得零件後再進行維修。');
         }
 
-        // 2. 介面生成函數
+        // 3. 解析維修編號 (例如 ~r 1)
+        const itemIndex = parseInt(args[0]) || 0; // 若沒輸入編號，預設維修第 0 個
+
+        // 4. 編號有效性檢查 (防止讀取 undefined)
+        if (itemIndex < 0 || itemIndex >= player.inventory.length) {
+            return message.reply(`❌ **找不到該零件！** 目前你的背包編號範圍是：\`0\` ~ \`${player.inventory.length - 1}\`。\n💡 提示：輸入 \`~b\` 查看所有物品編號。`);
+        }
+
+        const item = player.inventory[itemIndex];
+
+        // 5. 介面生成函數
         const createEmbed = (currentState) => {
             const color = currentState.durability < 30 ? 0xff5555 : 0xFFAA00;
             return new EmbedBuilder()
                 .setAuthor({ name: '🔧 工坊維修台', iconURL: message.author.displayAvatarURL() })
                 .setTitle(`正在修復：${currentState.name} [編號:${itemIndex}]`)
                 .setDescription(`>>> 🔋 **當前耐久：** \`${currentState.durability}%\`\n🌀 **當前熵值：** \`${currentState.entropy}\``)
-                .addFields({ name: '💡 維修說明', value: '點擊下方 **[🔨 執行鍛打]** 提升耐久。\n注意：敲擊可能導致**熵值上升**，越高越容易在合成時爆炸。' })
+                .addFields({ name: '💡 維修說明', value: '點擊 **[🔨 執行鍛打]** 提升耐久。\n注意：敲擊可能導致**熵值上升**，越高越容易在合成時爆炸。' })
                 .setColor(color)
                 .setFooter({ text: '請在 60 秒內操作完畢' })
                 .setTimestamp();
@@ -54,7 +62,7 @@ module.exports = {
             components: [row] 
         });
 
-        // 3. 建立收集器
+        // 6. 建立按鈕收集器 (Collector)
         const collector = response.createMessageComponentCollector({ 
             componentType: ComponentType.Button, 
             time: 60000 
@@ -75,7 +83,7 @@ module.exports = {
                     item.entropy += entropyIncr;
                 }
 
-                db.write(data); // 儲存至 data.json
+                db.write(data); // 每次點擊即時保存
 
                 const updatedEmbed = createEmbed(item);
                 if (entropyIncr > 0) {
@@ -93,7 +101,7 @@ module.exports = {
             // 結束時移除按鈕，並顯示最終結果
             const finalEmbed = createEmbed(item)
                 .setTitle(`✅ 維修結束：${item.name}`)
-                .setDescription(`>>> **最終耐久：** \`${item.durability}%\`\n**最終熵值：** \`${item.entropy}\`\n\n*工坊作業已結束。*`)
+                .setDescription(`>>> **最終狀態**\n🔋 耐久：\`${item.durability}%\`\n🌀 熵值：\`${item.entropy}\`\n\n*工坊冷卻中，資料已封存。*`)
                 .setColor(0x55ff55);
             
             response.edit({ embeds: [finalEmbed], components: [] }).catch(() => null);
