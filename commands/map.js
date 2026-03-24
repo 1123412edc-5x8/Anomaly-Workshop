@@ -3,7 +3,8 @@ const db = require('../utils/db');
 module.exports = {
     name: 'map',
     aliases: ['m', '地圖'],
-    execute: async (message, args) => {
+    color: 0x2980b9,
+    execute: async (message, args = []) => {
         const userId = message.author.id;
         let data = db.read();
 

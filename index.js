@@ -21,12 +21,13 @@ for (const file of commandFiles) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('~')) return;
 
-    const commandName = message.content.slice(1); // 去掉驚嘆號
+    const args = message.content.slice(1).split(/\s+/);
+    const commandName = args[0];
     const command = client.commands.get(commandName);
 
     if (command) {
         try {
-            await command.execute(message);
+            await command.execute(message, args.slice(1));
         } catch (error) {
             console.error(error);
             message.reply('❌ 執行指令時發生錯誤！');

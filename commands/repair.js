@@ -4,7 +4,7 @@ const db = require('../utils/db');
 module.exports = {
     name: 'repair',
     aliases: ['r', '維修'],
-    execute: async (message, args) => {
+    execute: async (message, args = []) => {
         const userId = message.author.id;
         let data = db.read();
 
