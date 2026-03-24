@@ -7,6 +7,9 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
+const db = require('./utils/db');
+const { getCooldown, setCooldown } = require('./utils/cooldown');
+
 // 建立指令集
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
@@ -18,6 +21,18 @@ for (const file of commandFiles) {
     client.commands.set(command.name, command);
 }
 
+// 自動保存玩家資料 (每小時一次)
+setInterval(() => {
+    const data = db.read();
+    Object.keys(data.players || {}).forEach(userId => {
+        if (data.players[userId]) {
+            data.players[userId].last_updated = new Date().toISOString();
+        }
+    });
+    db.write(data);
+    console.log(`[${new Date().toLocaleString('zh-TW')}] 自動保存玩家資料`);
+}, 60 * 60 * 1000); // 1小時
+
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('~')) return;
 
@@ -27,7 +42,16 @@ client.on('messageCreate', async (message) => {
 
     if (command) {
         try {
+            // 檢查冷卻時間
+            const cooldownRemaining = getCooldown(message.author.id, commandName);
+            if (cooldownRemaining > 0) {
+                return message.reply(`⏰ 請等待 ${cooldownRemaining} 秒後再使用此指令！`);
+            }
+
             await command.execute(message, args.slice(1));
+            
+            // 設定冷卻時間
+            setCooldown(message.author.id, commandName);
         } catch (error) {
             console.error(error);
             message.reply('❌ 執行指令時發生錯誤！');
