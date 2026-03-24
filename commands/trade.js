@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ComponentType } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
 
 module.exports = {
@@ -28,7 +28,7 @@ module.exports = {
                 .setDescription('選擇你要進行的交易操作：')
                 .addFields(
                     { name: '📤 列出我要交易的物品', value: '使用 `~trade list` 查看你的物品列表' },
-                    { name: '🤝 發起交易請求', value: '使用 `~trade request [@玩家] [我的物品] [@玩家的物品]`' },
+                    { name: '🤝 發起交易請求', value: '使用 `~trade request [@玩家] [我的物品編號] [@玩家] [他們的物品編號]`' },
                     { name: '💼 查看待交易', value: '使用 `~trade pending` 查看收到的交易請求' },
                     { name: '📋 交易紀錄', value: '使用 `~trade history` 查看過去的交易紀錄' }
                 )
@@ -39,6 +39,7 @@ module.exports = {
 
         const subcommand = args[0];
 
+        if (subcommand === 'list') {
             // 列出用戶的物品
             if (player.inventory.length === 0) {
                 const embed = new EmbedBuilder()
@@ -54,9 +55,9 @@ module.exports = {
                 .setDescription('以下是你可以交易的物品：');
 
             player.inventory.forEach((item, index) => {
-                const durBar = '█'.repeat(Math.floor(item.durability / 10)) + 
+                const durBar = '█'.repeat(Math.floor(item.durability / 10)) +
                               '░'.repeat(10 - Math.floor(item.durability / 10));
-                
+
                 embed.addFields({
                     name: `【${index}】${item.name}`,
                     value: `> 🛠️ 耐久：\`${durBar}\` (${item.durability}%)\n> 🌀 熵值：\`${item.entropy}\``,
@@ -159,6 +160,7 @@ module.exports = {
                 console.log('無法發送私訊給對方');
             }
 
+        } else if (subcommand === 'pending') {
             // 查看待處理交易
             if (!data.pending_trades || data.pending_trades.length === 0) {
                 const embed = new EmbedBuilder()
@@ -167,6 +169,8 @@ module.exports = {
                     .setColor(0xFFFF00);
                 return message.reply({ embeds: [embed] });
             }
+
+            const myPending = data.pending_trades.filter(trade => trade.to_user === userId && trade.status === 'pending');
 
             if (myPending.length === 0) {
                 const embed = new EmbedBuilder()
@@ -295,6 +299,7 @@ module.exports = {
 
             message.reply({ embeds: [embed] });
 
+        } else if (subcommand === 'history') {
             // 查看交易歷史
             if (!data.trade_history || data.trade_history.length === 0) {
                 const embed = new EmbedBuilder()
@@ -327,7 +332,7 @@ module.exports = {
         } else {
             const embed = new EmbedBuilder()
                 .setTitle('❌ 無效的子命令')
-                .setDescription('無效的子命令。使用 `~trade` 查看帮助。')
+                .setDescription('無效的子命令。使用 `~trade` 查看幫助。')
                 .setColor(0xFF0000);
             message.reply({ embeds: [embed] });
         }
