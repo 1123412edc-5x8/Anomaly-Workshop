@@ -6,13 +6,22 @@ module.exports = {
     aliases: ['c', '合成', 'combine'],
     execute: async (message) => {
         const args = message.content.split(' ');
-        if (args.length < 3) return message.reply('❌ 格式錯誤！請輸入 `!combine [物品1序號] [物品2序號]`（序號從 0 開始）');
+        if (args.length < 3) return message.reply('❌ 格式錯誤！請輸入 `~combine [物品1序號] [物品2序號]`（序號從 0 開始）');
 
         const userId = message.author.id;
         let data = db.read();
+
+        // 初始化玩家數據
+        if (!data.players) data.players = {};
+        if (!data.players[userId]) {
+            data.players[userId] = { inventory: [], currentLocation: '工廠' };
+            db.write(data);
+            return message.reply('🎒 你的背包是空的！請先使用 `~s` 拾荒獲得零件。');
+        }
+
         const player = data.players[userId];
 
-        if (!player || player.inventory.length < 2) return message.reply('❌ 你背包裡的零件不足，無法合成。');
+        if (player.inventory.length < 2) return message.reply('❌ 你背包裡的零件不足，無法合成。');
 
         const idxA = parseInt(args[1]);
         const idxB = parseInt(args[2]);

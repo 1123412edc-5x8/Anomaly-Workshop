@@ -8,6 +8,8 @@ module.exports = {
         const userId = message.author.id;
         let data = db.read();
 
+        // 初始化玩家數據
+        if (!data.players) data.players = {};
         if (!data.players[userId]) {
             data.players[userId] = { inventory: [], currentLocation: '工廠', quests: [] };
             db.write(data);

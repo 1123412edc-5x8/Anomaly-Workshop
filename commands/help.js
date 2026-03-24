@@ -1,43 +1,199 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const itemWiki = require('../utils/items');
 
 module.exports = {
     name: 'help',
     aliases: ['h', '幫助', 'wiki'],
-    execute: async (message) => {
-        const embed = new EmbedBuilder()
-            .setTitle('🛠️ 異常工坊：完整遊戲指南')
-            .setColor(0x00FFCC)
-            .setDescription('歡迎來到異常工坊！這是一個充滿未知與變異的世界。以下是所有可用的遊戲系統：')
-            .addFields(
-                { name: '📍 地圖系統', value: `目前開放地區：\`${Object.keys(itemWiki).join('、')}\`\n使用 \`~map [地圖名]\` 前往不同區域。每個地區有獨特的物品和危險等級。` },
-                { name: '🔍 拾荒系統', value: '使用 \`~s\` 在當前地區尋找零件。每區有 50 種不同物品，包含耐久度和熵值屬性。' },
-                { name: '🎒 背包管理', value: '使用 \`~bag\` 或 \`~b\` 查看你的所有物品。顯示耐久度條和熵值狀態。' },
-                { name: '🔧 維修系統', value: '\`~r [編號]\` 進入維修台。每擊鍛打 +5% 耐久，但有 25% 機率增加熵值。' },
-                { name: '🌀 合成系統', value: '\`~c [編號1] [編號2]\` 融合兩個零件。熵值越高失敗率越大，可能導致物品毀滅。' },
-                { name: '⚔️ 戰鬥系統', value: '遭遇異常生物時自動觸發。使用高耐久零件作為武器，低熵值零件作為護盾。' },
-                { name: '📋 任務系統', value: '完成每日/每周任務獲得特殊獎勵。任務包括收集特定物品或達成合成目標。' },
-                { name: '🏪 黑市交易', value: '使用 \`~shop\` 瀏覽可交易物品。用熵結晶兌換稀有零件或升級材料。' },
-                { name: '⬆️ 升級系統', value: '消耗經驗值提升角色等級。解鎖新技能和增加背包容量。' },
-                { name: '🎯 技能樹', value: '專精不同方向：維修大師、合成專家、拾荒高手、戰鬥專精。' },
-                { name: '🏆 成就系統', value: '收集各種成就徽章。特殊成就解鎖隱藏地區和傳說物品。' },
-                { name: '📊 排行榜', value: '查看 \`~rank\` 了解各項排行：最高等級、最多合成、最高熵值控制。' },
-                { name: '👥 團隊合作', value: '加入工會與其他玩家合作。共同挑戰大型異常事件。' },
-                { name: '🎲 隨機事件', value: '探索時可能觸發特殊事件：寶藏發現、異常突變、神秘訪客。' },
-                { name: '🔬 研究系統', value: '解鎖物品配方和合成技巧。研究高熵物品獲得突破性發現。' },
-                { name: '⏰ 時間系統', value: '遊戲有晝夜循環。夜晚拾荒更容易找到稀有物品，但危險也更高。' },
-                { name: '🌤️ 天氣系統', value: '天氣影響拾荒成功率和物品品質。風暴天更容易找到高品質零件。' },
-                { name: '👤 NPC 互動', value: '與工坊居民對話獲得線索、任務或交易機會。' },
-                { name: '🗺️ 探索系統', value: '發現隱藏地點和秘密區域。需要特殊條件才能進入。' },
-                { name: '💎 資源管理', value: '管理熵結晶、維修工具、合成材料。合理分配資源至關重要。' },
-                { name: '🔄 循環系統', value: '物品有使用壽命。過度使用會增加熵值，最終導致崩潰。' },
-                { name: '🎨 客製化', value: '解鎖外觀和稱號。展示你的成就和遊戲風格。' },
-                { name: '📈 進度追蹤', value: '查看 \`~progress\` 了解你的遊戲進度和未完成目標。' },
-                { name: '🔒 解鎖內容', value: '隨著等級提升解鎖新地區、新物品類型、新遊戲機制。' },
-                { name: '💀 風險管理', value: '高熵物品威力巨大但極不穩定。平衡風險與收益是遊戲核心。' }
-            )
-            .setFooter({ text: '輸入具體指令名稱獲取詳細說明 | 祝你在異常工坊中玩得愉快！' });
+    execute: async (message, args = []) => {
+        const page = args[0] || 'main';
 
-        message.reply({ embeds: [embed] });
+        if (page === 'main') {
+            // 主頁面 - 指令總覽
+            const embed = new EmbedBuilder()
+                .setTitle('🛠️ 異常工坊：指令指南')
+                .setColor(0x00FFCC)
+                .setDescription('歡迎來到異常工坊！使用 `~help [頁面]` 查看詳細說明')
+                .addFields(
+                    { name: '🎮 基本指令', value: '`~bag` - 查看背包\n`~map [地區]` - 移動地區\n`~s` - 拾荒零件\n`~r [編號]` - 維修物品\n`~c [編號1] [編號2]` - 合成物品', inline: true },
+                    { name: '⚔️ 進階系統', value: '`~battle` - 戰鬥系統\n`~quest` - 任務列表\n`~shop` - 黑市商店\n`~trade` - 玩家交易\n`~progress` - 進度追蹤', inline: true },
+                    { name: '📊 社群功能', value: '`~rank` - 排行榜\n`~achievement` - 成就系統\n`~help [頁面]` - 詳細說明', inline: true }
+                )
+                .setFooter({ text: '使用 ~help [指令名] 查看詳細用法 | 例如: ~help bag' });
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('basic').setLabel('基本指令').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('advanced').setLabel('進階系統').setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('social').setLabel('社群功能').setStyle(ButtonStyle.Success)
+            );
+
+            const response = await message.reply({ embeds: [embed], components: [row] });
+
+            const collector = response.createMessageComponentCollector({
+                componentType: ComponentType.Button,
+                time: 60000
+            });
+
+            collector.on('collect', async (i) => {
+                if (i.user.id !== message.author.id) return i.reply({ content: '這不是你的幫助菜單', ephemeral: true });
+
+                let helpEmbed;
+                if (i.customId === 'basic') {
+                    helpEmbed = createBasicHelpEmbed();
+                } else if (i.customId === 'advanced') {
+                    helpEmbed = createAdvancedHelpEmbed();
+                } else if (i.customId === 'social') {
+                    helpEmbed = createSocialHelpEmbed();
+                }
+
+                await i.update({ embeds: [helpEmbed], components: [row] });
+            });
+
+        } else {
+            // 詳細頁面
+            const detailEmbed = getDetailHelp(page);
+            message.reply({ embeds: [detailEmbed] });
+        }
     }
 };
+
+function createBasicHelpEmbed() {
+    return new EmbedBuilder()
+        .setTitle('🎮 基本指令詳解')
+        .setColor(0x3498db)
+        .addFields(
+            {
+                name: '🎒 ~bag (~b)',
+                value: '**查看背包**\n顯示所有物品的耐久度和熵值狀態\n**用法：** `~bag`\n**別名：** `~b`, `~背包`'
+            },
+            {
+                name: '📍 ~map [地區]',
+                value: '**移動地區**\n前往不同區域尋找不同物品\n**可用地區：** 工廠、荒野、實驗室\n**用法：** `~map 荒野`\n**別名：** `~m`, `~地圖`'
+            },
+            {
+                name: '🔍 ~scavenge (~s)',
+                value: '**拾荒零件**\n在當前地區尋找隨機零件\n**用法：** `~s`\n**別名：** `~s`, `~拾荒`'
+            },
+            {
+                name: '🔧 ~repair [編號] (~r)',
+                value: '**維修物品**\n提升物品耐久度，每次 +5%\n**用法：** `~r 0` (維修第0個物品)\n**別名：** `~r`, `~維修`'
+            },
+            {
+                name: '🌀 ~combine [編號1] [編號2] (~c)',
+                value: '**合成物品**\n融合兩個零件，熵值越高失敗率越大\n**用法：** `~c 0 1` (合成第0和第1個物品)\n**別名：** `~c`, `~合成`'
+            }
+        );
+}
+
+function createAdvancedHelpEmbed() {
+    return new EmbedBuilder()
+        .setTitle('⚔️ 進階系統詳解')
+        .setColor(0xe74c3c)
+        .addFields(
+            {
+                name: '⚔️ ~battle',
+                value: '**戰鬥系統**\n遭遇隨機敵人，攻擊、防禦或逃跑\n**用法：** `~battle`\n**獲得：** 經驗值和熵結晶'
+            },
+            {
+                name: '📋 ~quest (~q)',
+                value: '**任務系統**\n查看可完成的任務和進度\n**用法：** `~quest`\n**別名：** `~q`, `~任務`'
+            },
+            {
+                name: '🏪 ~shop',
+                value: '**黑市商店**\n購買增強道具和稀有物品\n**用法：** `~shop`\n**貨幣：** 熵結晶'
+            },
+            {
+                name: '💱 ~trade [子命令]',
+                value: '**玩家交易**\n與其他玩家交換物品\n**子命令：**\n`~trade list` - 列出物品\n`~trade request @玩家 編號1 @玩家 編號2` - 發起交易\n`~trade pending` - 查看請求\n`~trade accept ID` - 接受交易\n`~trade reject ID` - 拒絕交易\n`~trade history` - 交易歷史'
+            },
+            {
+                name: '📈 ~progress',
+                value: '**進度追蹤**\n查看等級、經驗和統計數據\n**用法：** `~progress`\n**別名：** `~進度`'
+            }
+        );
+}
+
+function createSocialHelpEmbed() {
+    return new EmbedBuilder()
+        .setTitle('📊 社群功能詳解')
+        .setColor(0x2ecc71)
+        .addFields(
+            {
+                name: '🏆 ~rank',
+                value: '**排行榜**\n查看各項全球排行\n**用法：** `~rank`\n**排行：** 等級、經驗、藏品、熵值控制'
+            },
+            {
+                name: '🏅 ~achievement (~ach)',
+                value: '**成就系統**\n查看已解鎖的成就\n**用法：** `~achievement`\n**別名：** `~ach`, `~成就`'
+            },
+            {
+                name: '🛠️ ~help [頁面]',
+                value: '**幫助系統**\n查看指令詳細說明\n**用法：**\n`~help` - 主頁面\n`~help bag` - bag指令詳解\n`~help battle` - battle指令詳解\n**別名：** `~h`, `~幫助`'
+            }
+        );
+}
+
+function getDetailHelp(command) {
+    const details = {
+        'bag': {
+            title: '🎒 Bag 指令詳解',
+            description: '**查看背包內容**\n\n**基本用法：**\n`~bag` 或 `~b`\n\n**顯示內容：**\n• 物品名稱和編號\n• 耐久度條 (█░░░░░░░░░)\n• 熵值狀態 (穩定/變異)\n• 總物品數量\n\n**物品狀態說明：**\n🟢 **穩定** - 熵值 ≤ 50\n⚠️ **嚴重變異** - 熵值 > 50\n\n**提示：**\n• 編號從 0 開始\n• 用於維修和合成時需要編號'
+        },
+        'map': {
+            title: '📍 Map 指令詳解',
+            description: '**地區移動系統**\n\n**基本用法：**\n`~map [地區名稱]`\n\n**可用地區：**\n• **工廠** - 機械零件，耐久度高\n• **荒野** - 生物材料，熵值變化大\n• **實驗室** - 科技物品，品質不穩定\n\n**範例：**\n`~map 荒野` - 移動到荒野\n`~map` - 查看當前位置\n\n**地區特色：**\n每個地區有 50 種獨特物品，影響拾荒結果。'
+        },
+        'scavenge': {
+            title: '🔍 Scavenge 指令詳解',
+            description: '**拾荒系統**\n\n**基本用法：**\n`~s` 或 `~scavenge`\n\n**獲得物品：**\n• 隨機零件 (根據當前地區)\n• 耐久度：20-60%\n• 熵值：0-10\n\n**地區差異：**\n• **工廠**：機械零件，穩定品質\n• **荒野**：生物材料，高熵值風險\n• **實驗室**：科技物品，品質波動大\n\n**冷卻時間：** 無 (可連續使用)'
+        },
+        'repair': {
+            title: '🔧 Repair 指令詳解',
+            description: '**維修系統**\n\n**基本用法：**\n`~r [物品編號]` 或 `~repair [物品編號]`\n\n**維修效果：**\n• 耐久度 +5% (最高 100%)\n• 25% 機率熵值 +1\n\n**操作方式：**\n1. 使用 `~bag` 查看物品編號\n2. 輸入 `~r 0` 維修第0個物品\n3. 點擊按鈕進行鍛打\n4. 選擇"保存離開"完成維修\n\n**風險：**\n過度維修可能增加熵值，影響物品穩定性。'
+        },
+        'combine': {
+            title: '🌀 Combine 指令詳解',
+            description: '**合成系統**\n\n**基本用法：**\n`~c [編號1] [編號2]` 或 `~combine [編號1] [編號2]`\n\n**合成規則：**\n• 融合兩個零件\n• 平均耐久度 +10%\n• 熵值 = (熵值1 + 熵值2) × 0.8\n\n**失敗判定：**\n熵值總和 > 150 時有爆炸風險\n\n**成功結果：**\n• **低熵值**：純淨·複合零件\n• **高熵值**：穩定態·異質零件\n\n**注意：** 失敗會摧毀兩個原始零件！'
+        },
+        'battle': {
+            title: '⚔️ Battle 指令詳解',
+            description: '**戰鬥系統**\n\n**基本用法：**\n`~battle` 或 `~fight`\n\n**戰鬥流程：**\n1. 隨機遭遇敵人\n2. 選擇：攻擊、防禦、逃跑\n3. 根據物品屬性計算傷害\n\n**傷害計算：**\n• **攻擊**：耐久度 × 0.1 + 隨機數\n• **防禦**：傷害減半\n• **逃跑**：100% 成功率\n\n**獎勵：**\n• 勝利：經驗值 + 熵結晶\n• 失敗：損失 HP (可通過物品恢復)\n\n**敵人種類：**\n生鏽泰坦、變異蜘蛛、熵怪獸等'
+        },
+        'quest': {
+            title: '📋 Quest 指令詳解',
+            description: '**任務系統**\n\n**基本用法：**\n`~quest` 或 `~q`\n\n**任務類型：**\n• **初心者考驗**：拾荒 5 次\n• **維修大師**：維修 10 次\n• **完美合成**：合成 3 次不失敗\n• **全地圖探險**：訪問所有地區\n• **怪物獵人**：贏得 5 場戰鬥\n\n**進度顯示：**\n████████░░ (8/10)\n\n**獎勵：**\n完成任務獲得經驗值，解鎖新內容。'
+        },
+        'shop': {
+            title: '🏪 Shop 指令詳解',
+            description: '**黑市商店**\n\n**基本用法：**\n`~shop`\n\n**貨幣系統：**\n• **熵結晶**：戰鬥和拾荒獲得\n• **用途**：購買道具和升級\n\n**商品列表：**\n• 高級維修工具 (50 結晶)\n• 熵值穩定劑 (100 結晶)\n• 背包擴展模組 (150 結晶)\n• 稀有合成配方 (200 結晶)\n• 傳說級零件碎片 (300 結晶)\n\n**購買方式：**\n目前商店瀏覽功能，購買系統開發中。'
+        },
+        'trade': {
+            title: '💱 Trade 指令詳解',
+            description: '**玩家交易系統**\n\n**基本用法：**\n`~trade [子命令]`\n\n**子命令列表：**\n\n**`~trade`** - 顯示交易菜單\n**`~trade list`** - 列出你的物品\n**`~trade request @玩家 編號1 @玩家 編號2`** - 發起交易\n**`~trade pending`** - 查看待處理請求\n**`~trade accept ID`** - 接受交易\n**`~trade reject ID`** - 拒絕交易\n**`~trade history`** - 查看交易歷史\n\n**交易流程：**\n1. 雙方確認物品編號\n2. 發起交易請求\n3. 對方收到通知\n4. 接受或拒絕\n5. 自動交換物品'
+        },
+        'rank': {
+            title: '🏆 Rank 指令詳解',
+            description: '**排行榜系統**\n\n**基本用法：**\n`~rank`\n\n**排行類別：**\n• **⭐ 最高等級** - 玩家等級排名\n• **📈 經驗排名** - 總經驗值\n• **🎒 藏品最多** - 物品數量\n• **🌀 熵值高手** - 平均熵值控制\n\n**更新頻率：**\n每小時自動更新\n\n**排名顯示：**\n1. 玩家#1234 - Lv. 15\n2. 玩家#5678 - 1250 EXP\n3. 玩家#9012 - 45 件'
+        },
+        'progress': {
+            title: '📈 Progress 指令詳解',
+            description: '**進度追蹤**\n\n**基本用法：**\n`~progress`\n\n**顯示內容：**\n• **等級進度條**\n• **背包統計**\n• **熵值分析**\n• **地區探索**\n• **資源統計**\n\n**統計項目：**\n- 物品總數 / 背包容量\n- 平均耐久度\n- 平均熵值\n- 最高熵值\n- 維修次數\n- 合成次數\n- 熵結晶數量'
+        },
+        'achievement': {
+            title: '🏅 Achievement 指令詳解',
+            description: '**成就系統**\n\n**基本用法：**\n`~achievement` 或 `~ach`\n\n**成就列表：**\n• 🌱 **初出茅廬** - 完成第一次拾荒\n• 📦 **品味收藏** - 收集 10 個物品\n• 🔧 **完美維護** - 物品耐久至 100%\n• ✨ **合成大師** - 成功合成 5 次\n• 🗺️ **全域遊歷** - 訪問所有地區\n• ⚔️ **戰鬥勇者** - 贏得 10 場戰鬥\n• 🌀 **熵值控制者** - 熵值控制在 5 以下\n• 💎 **富豪** - 擁有 500 熵結晶\n• 👑 **傳說獵手** - 獲得傳說物品\n• 🏆 **無所不能** - 完成所有成就\n\n**解鎖條件：**\n自動檢測遊戲行為，達成後解鎖。'
+        }
+    };
+
+    const detail = details[command];
+    if (!detail) {
+        return new EmbedBuilder()
+            .setTitle('❌ 找不到指令')
+            .setColor(0xFF0000)
+            .setDescription(`找不到 "${command}" 的詳細說明。\n\n使用 \`~help\` 查看所有可用指令。`);
+    }
+
+    return new EmbedBuilder()
+        .setTitle(detail.title)
+        .setColor(0x00FFCC)
+        .setDescription(detail.description);
+}

@@ -9,7 +9,8 @@ module.exports = {
         const userId = message.author.id;
         let data = db.read();
 
-        // 1. 確定玩家位置 (如果沒移動過，預設在工廠)
+        // 初始化玩家數據
+        if (!data.players) data.players = {};
         if (!data.players[userId]) {
             data.players[userId] = { inventory: [], currentLocation: '工廠' };
         }

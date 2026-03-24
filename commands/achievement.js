@@ -8,6 +8,8 @@ module.exports = {
         const userId = message.author.id;
         let data = db.read();
 
+        // 初始化玩家數據
+        if (!data.players) data.players = {};
         if (!data.players[userId]) {
             return message.reply('🎮 你還沒有開始遊戲！');
         }

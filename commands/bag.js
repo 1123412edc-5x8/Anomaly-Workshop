@@ -17,9 +17,12 @@ module.exports = {
         const data = db.read();
         const userId = message.author.id;
 
+        // 初始化玩家數據
+        if (!data.players) data.players = {};
         if (!data.players[userId]) {
             data.players[userId] = {
-                inventory: [{ name: "老舊鐵鎚", durability: 30, entropy: 5 }]
+                inventory: [{ name: "老舊鐵鎚", durability: 30, entropy: 5 }],
+                currentLocation: '工廠'
             };
             db.write(data);
         }
