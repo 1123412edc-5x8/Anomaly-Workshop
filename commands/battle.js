@@ -8,17 +8,20 @@ module.exports = {
         const userId = message.author.id;
         let data = db.read();
 
-        // 初始化玩家數據
-        if (!data.players) data.players = {};
         if (!data.players[userId]) {
-            return message.reply('🎒 請先使用 `~s` 拾荒獲得零件！');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無法開始戰鬥')
+                .setDescription('🎒 請先使用 `~s` 拾荒獲得零件！')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
-        const player = data.players[userId];
-        const inventory = player.inventory;
-
         if (inventory.length === 0) {
-            return message.reply('你的背包是空的！無法進行戰鬥。');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無法開始戰鬥')
+                .setDescription('你的背包是空的！無法進行戰鬥。')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
         // 隨機敵人

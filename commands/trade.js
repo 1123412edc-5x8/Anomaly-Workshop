@@ -11,7 +11,11 @@ module.exports = {
         // 初始化玩家數據
         if (!data.players) data.players = {};
         if (!data.players[userId]) {
-            return message.reply('🎒 請先使用 `~s` 拾荒獲得零件！');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無法交易')
+                .setDescription('🎒 請先使用 `~s` 拾荒獲得零件！')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
         const player = data.players[userId];
@@ -35,10 +39,13 @@ module.exports = {
 
         const subcommand = args[0];
 
-        if (subcommand === 'list') {
             // 列出用戶的物品
             if (player.inventory.length === 0) {
-                return message.reply('🎒 你的背包是空的，無法進行交易。');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 無法交易')
+                    .setDescription('🎒 你的背包是空的，無法進行交易。')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             const embed = new EmbedBuilder()
@@ -68,11 +75,19 @@ module.exports = {
             const theirItemIndex = parseInt(args[4]);
 
             if (!targetUser || isNaN(myItemIndex) || isNaN(theirItemIndex)) {
-                return message.reply('❌ 格式錯誤！\n使用：`~trade request [@玩家] [我的物品編號] [@玩家] [他們的物品編號]`\n例：`~trade request @玩家A 0 @玩家A 1`');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 格式錯誤')
+                    .setDescription('使用：`~trade request [@玩家] [我的物品編號] [@玩家] [他們的物品編號]`\n例：`~trade request @玩家A 0 @玩家A 1`')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             if (!data.players[targetUser.id]) {
-                return message.reply('❌ 目標玩家還沒開始遊戲！');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 無法交易')
+                    .setDescription('目標玩家還沒開始遊戲！')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             const targetPlayer = data.players[targetUser.id];
@@ -80,7 +95,11 @@ module.exports = {
             const theirItem = targetPlayer.inventory[theirItemIndex];
 
             if (!myItem || !theirItem) {
-                return message.reply('❌ 物品編號無效！');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 無效的物品編號')
+                    .setDescription('物品編號無效！')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             // 初始化交易待轉
@@ -140,16 +159,21 @@ module.exports = {
                 console.log('無法發送私訊給對方');
             }
 
-        } else if (subcommand === 'pending') {
             // 查看待處理交易
             if (!data.pending_trades || data.pending_trades.length === 0) {
-                return message.reply('📭 你沒有待處理的交易請求。');
+                const embed = new EmbedBuilder()
+                    .setTitle('📭 無待處理交易')
+                    .setDescription('你沒有待處理的交易請求。')
+                    .setColor(0xFFFF00);
+                return message.reply({ embeds: [embed] });
             }
 
-            const myPending = data.pending_trades.filter(trade => trade.to_user === userId && trade.status === 'pending');
-
             if (myPending.length === 0) {
-                return message.reply('📭 你沒有待處理的交易請求。');
+                const embed = new EmbedBuilder()
+                    .setTitle('📭 無待處理交易')
+                    .setDescription('你沒有待處理的交易請求。')
+                    .setColor(0xFFFF00);
+                return message.reply({ embeds: [embed] });
             }
 
             const embed = new EmbedBuilder()
@@ -171,17 +195,29 @@ module.exports = {
             const tradeId = parseInt(args[1]);
 
             if (!data.pending_trades) {
-                return message.reply('❌ 交易記錄不存在。');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 交易記錄不存在')
+                    .setDescription('交易記錄不存在。')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             const trade = data.pending_trades.find(t => t.id === tradeId);
 
             if (!trade || trade.to_user !== userId) {
-                return message.reply('❌ 找不到該交易請求。');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 找不到交易請求')
+                    .setDescription('找不到該交易請求。')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             if (trade.status !== 'pending') {
-                return message.reply('❌ 該交易已經處理過了。');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 交易已處理')
+                    .setDescription('該交易已經處理過了。')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             // 執行交易
@@ -192,7 +228,11 @@ module.exports = {
             const receiverItem = receiver.inventory[trade.to_item.index];
 
             if (!senderItem || !receiverItem) {
-                return message.reply('❌ 物品已不存在，交易無法進行。');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 交易失敗')
+                    .setDescription('物品已不存在，交易無法進行。')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             // 交換物品
@@ -227,14 +267,22 @@ module.exports = {
             const tradeId = parseInt(args[1]);
 
             if (!data.pending_trades) {
-                return message.reply('❌ 交易記錄不存在。');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 交易記錄不存在')
+                    .setDescription('交易記錄不存在。')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             const tradeIndex = data.pending_trades.findIndex(t => t.id === tradeId);
             const trade = data.pending_trades[tradeIndex];
 
             if (!trade || trade.to_user !== userId) {
-                return message.reply('❌ 找不到該交易請求。');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 找不到交易請求')
+                    .setDescription('找不到該交易請求。')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             data.pending_trades.splice(tradeIndex, 1);
@@ -247,10 +295,13 @@ module.exports = {
 
             message.reply({ embeds: [embed] });
 
-        } else if (subcommand === 'history') {
             // 查看交易歷史
             if (!data.trade_history || data.trade_history.length === 0) {
-                return message.reply('📭 你還沒有完成過任何交易。');
+                const embed = new EmbedBuilder()
+                    .setTitle('📭 無交易歷史')
+                    .setDescription('你還沒有完成過任何交易。')
+                    .setColor(0xFFFF00);
+                return message.reply({ embeds: [embed] });
             }
 
             const myHistory = data.trade_history.filter(
@@ -274,7 +325,11 @@ module.exports = {
             message.reply({ embeds: [embed] });
 
         } else {
-            message.reply('❌ 無效的子命令。使用 `~trade` 查看帮助。');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無效的子命令')
+                .setDescription('無效的子命令。使用 `~trade` 查看帮助。')
+                .setColor(0xFF0000);
+            message.reply({ embeds: [embed] });
         }
     }
 };

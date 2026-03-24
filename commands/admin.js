@@ -10,7 +10,11 @@ module.exports = {
     execute: async (message, args = []) => {
         // 檢查管理員權限
         if (!ADMINS.includes(message.author.id) && !message.member?.permissions.has('ADMINISTRATOR')) {
-            return message.reply('❌ 你沒有管理員權限！');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 權限不足')
+                .setDescription('你沒有管理員權限！')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
         const subcommand = args[0];
@@ -39,7 +43,11 @@ module.exports = {
             const data = db.read();
 
             if (!data.players[targetUser.id]) {
-                return message.reply('❌ 該玩家還沒開始遊戲。');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 玩家未找到')
+                    .setDescription('該玩家還沒開始遊戲。')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             const player = data.players[targetUser.id];
@@ -110,7 +118,11 @@ module.exports = {
             const targetUser = message.mentions.users.first();
 
             if (!targetUser) {
-                return message.reply('❌ 請指定要重置的玩家！使用 `~admin reset [@玩家]`');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 請指定玩家')
+                    .setDescription('請指定要重置的玩家！使用 `~admin reset [@玩家]`')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             const data = db.read();
@@ -139,7 +151,11 @@ module.exports = {
             const commandName = args[2];
 
             if (!targetUser) {
-                return message.reply('❌ 請指定玩家！使用 `~admin cooldown [@玩家] [指令]`');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 請指定玩家')
+                    .setDescription('請指定玩家！使用 `~admin cooldown [@玩家] [指令]`')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             const data = db.read();
@@ -171,7 +187,11 @@ module.exports = {
                 const endTime = userCooldowns[commandName];
 
                 if (!endTime) {
-                    return message.reply(`✅ ${targetUser.username} 可以使用 \`${commandName}\` 指令。`);
+                    const embed = new EmbedBuilder()
+                        .setTitle('✅ 冷卻檢查')
+                        .setDescription(`${targetUser.username} 可以使用 \`${commandName}\` 指令。`)
+                        .setColor(0x00FF00);
+                    return message.reply({ embeds: [embed] });
                 }
 
                 const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
@@ -188,7 +208,11 @@ module.exports = {
             const targetUser = message.mentions.users.first();
 
             if (!targetUser) {
-                return message.reply('❌ 請指定玩家！使用 `~admin clearcooldown [@玩家]`');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ 請指定玩家')
+                    .setDescription('請指定玩家！使用 `~admin clearcooldown [@玩家]`')
+                    .setColor(0xFF0000);
+                return message.reply({ embeds: [embed] });
             }
 
             const data = db.read();
@@ -204,7 +228,11 @@ module.exports = {
 
             message.reply({ embeds: [embed] });
         } else {
-            message.reply('❌ 無效的子命令。使用 `~admin` 查看幫助。');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無效的子命令')
+                .setDescription('無效的子命令。使用 `~admin` 查看幫助。')
+                .setColor(0xFF0000);
+            message.reply({ embeds: [embed] });
         }
     }
 };

@@ -6,7 +6,13 @@ module.exports = {
     aliases: ['c', '合成', 'combine'],
     execute: async (message) => {
         const args = message.content.split(' ');
-        if (args.length < 3) return message.reply('❌ 格式錯誤！請輸入 `~combine [物品1序號] [物品2序號]`（序號從 0 開始）');
+        if (args.length < 3) {
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 格式錯誤')
+                .setDescription('請輸入 `~combine [物品1序號] [物品2序號]`（序號從 0 開始）')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
+        }
 
         const userId = message.author.id;
         let data = db.read();
@@ -16,18 +22,27 @@ module.exports = {
         if (!data.players[userId]) {
             data.players[userId] = { inventory: [], currentLocation: '工廠' };
             db.write(data);
-            return message.reply('🎒 你的背包是空的！請先使用 `~s` 拾荒獲得零件。');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無法合成')
+                .setDescription('🎒 你的背包是空的！請先使用 `~s` 拾荒獲得零件。')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
-        const player = data.players[userId];
-
-        if (player.inventory.length < 2) return message.reply('❌ 你背包裡的零件不足，無法合成。');
-
-        const idxA = parseInt(args[1]);
-        const idxB = parseInt(args[2]);
+        if (player.inventory.length < 2) {
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無法合成')
+                .setDescription('你背包裡的零件不足，無法合成。')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
+        }
 
         if (isNaN(idxA) || isNaN(idxB) || !player.inventory[idxA] || !player.inventory[idxB] || idxA === idxB) {
-            return message.reply('❌ 序號無效或重複！');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無效的序號')
+                .setDescription('序號無效或重複！')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
         const itemA = player.inventory[idxA];

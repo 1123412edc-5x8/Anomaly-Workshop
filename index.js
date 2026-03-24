@@ -41,11 +41,14 @@ client.on('messageCreate', async (message) => {
     const command = client.commands.get(commandName);
 
     if (command) {
-        try {
             // 檢查冷卻時間
             const cooldownRemaining = getCooldown(message.author.id, commandName);
             if (cooldownRemaining > 0) {
-                return message.reply(`⏰ 請等待 ${cooldownRemaining} 秒後再使用此指令！`);
+                const embed = new EmbedBuilder()
+                    .setTitle('⏰ 冷卻中')
+                    .setDescription(`請等待 ${cooldownRemaining} 秒後再使用此指令！`)
+                    .setColor(0xFFFF00);
+                return message.reply({ embeds: [embed] });
             }
 
             await command.execute(message, args.slice(1));

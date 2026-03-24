@@ -19,19 +19,22 @@ module.exports = {
             data.players[userId].inventory = [];
         }
 
-        const player = data.players[userId];
-
         // 檢查背包是否有東西
         if (player.inventory.length === 0) {
-            return message.reply('🎒 **你的背包是空的！** 請先使用 `~s` 拾荒獲得零件。');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無法維修')
+                .setDescription('🎒 **你的背包是空的！** 請先使用 `~s` 拾荒獲得零件。')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
-
-        // 解析編號，預設 0
-        const itemIndex = parseInt(args[0]) || 0;
 
         // 檢查編號是否存在於陣列中
         if (itemIndex < 0 || itemIndex >= player.inventory.length) {
-            return message.reply(`❌ **找不到編號為 [${itemIndex}] 的零件**。目前有效範圍：\`0\` ~ \`${player.inventory.length - 1}\``);
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無效的零件編號')
+                .setDescription(`找不到編號為 [${itemIndex}] 的零件。目前有效範圍：\`0\` ~ \`${player.inventory.length - 1}\``)
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
         const item = player.inventory[itemIndex];

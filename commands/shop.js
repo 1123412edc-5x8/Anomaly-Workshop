@@ -11,7 +11,11 @@ module.exports = {
         // 初始化玩家數據
         if (!data.players) data.players = {};
         if (!data.players[userId]) {
-            return message.reply('🎒 請先使用 `~s` 拾荒獲得零件！');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無法進入商店')
+                .setDescription('🎒 請先使用 `~s` 拾荒獲得零件！')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
         const player = data.players[userId];

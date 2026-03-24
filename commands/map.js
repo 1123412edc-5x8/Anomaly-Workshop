@@ -15,19 +15,24 @@ module.exports = {
             data.players[userId] = { inventory: [], currentLocation: '工廠' };
         }
 
-        const targetMap = args[0];
-        const maps = ['工廠', '荒野', '實驗室'];
-
         // 2. 如果沒輸入或地圖不對，直接回傳
         if (!targetMap || !maps.includes(targetMap)) {
             const current = data.players[userId].currentLocation || '工廠';
-            return message.reply(`📍 你目前在：**【${current}】**\n可用地區：\`工廠、荒野、實驗室\``);
+            const embed = new EmbedBuilder()
+                .setTitle('📍 當前位置')
+                .setDescription(`你目前在：**【${current}】**\n可用地區：\`工廠、荒野、實驗室\``)
+                .setColor(0x2980b9);
+            return message.reply({ embeds: [embed] });
         }
 
         // 3. 寫入資料
         data.players[userId].currentLocation = targetMap;
         db.write(data);
 
-        message.reply(`✅ 已移動到 **【${targetMap}】**！`);
+        const embed = new EmbedBuilder()
+            .setTitle('✅ 移動成功')
+            .setDescription(`已移動到 **【${targetMap}】**！`)
+            .setColor(0x00FF00);
+        message.reply({ embeds: [embed] });
     }
 };

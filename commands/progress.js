@@ -11,7 +11,11 @@ module.exports = {
         // 初始化玩家數據
         if (!data.players) data.players = {};
         if (!data.players[userId]) {
-            return message.reply('🎮 你還沒有開始遊戲！使用 `~s` 開始拾荒吧！');
+            const embed = new EmbedBuilder()
+                .setTitle('❌ 無法查看進度')
+                .setDescription('🎮 你還沒有開始遊戲！使用 `~s` 開始拾荒吧！')
+                .setColor(0xFF0000);
+            return message.reply({ embeds: [embed] });
         }
 
         const player = data.players[userId];
