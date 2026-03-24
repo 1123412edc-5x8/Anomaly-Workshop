@@ -41,6 +41,7 @@ client.on('messageCreate', async (message) => {
     const command = client.commands.get(commandName);
 
     if (command) {
+        try {
             // 檢查冷卻時間
             const cooldownRemaining = getCooldown(message.author.id, commandName);
             if (cooldownRemaining > 0) {
