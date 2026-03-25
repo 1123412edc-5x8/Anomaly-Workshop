@@ -9,45 +9,42 @@ module.exports = {
         
         const players = Object.entries(data.players || {}).map(([userId, player]) => ({
             userId,
-            level: player.level || 1,
-            exp: player.exp || 0,
+            weekly_points: player.weekly_points || 0,
             inventory_count: player.inventory?.length || 0,
-            avg_entropy: player.inventory?.length > 0 
-                ? Math.floor(player.inventory.reduce((sum, item) => sum + item.entropy, 0) / player.inventory.length)
-                : 0
+            collected_items: player.collected_items?.length || 0
         }));
 
-        const levelRank = players.sort((a, b) => b.level - a.level).slice(0, 5);
-        const expRank = players.sort((a, b) => b.exp - a.exp).slice(0, 5);
-        const collectorRank = players.sort((a, b) => b.inventory_count - a.inventory_count).slice(0, 5);
-        const entropyRank = players.sort((a, b) => b.avg_entropy - a.avg_entropy).slice(0, 5);
+        // 按周積分排序
+        const weeklyRank = players.sort((a, b) => b.weekly_points - a.weekly_points).slice(0, 10);
+        
+        // 藏品最多
+        const collectorRank = players.sort((a, b) => b.collected_items - a.collected_items).slice(0, 5);
 
         const embed = new EmbedBuilder()
-            .setTitle('🏆 全球排行榜')
+            .setTitle('🏆 本週排行榜')
+            .setDescription('積分將在每週一 UTC+8 00:00 重置')
             .setColor(0xFFD700);
 
-        // 最高等級
-        let levelText = '';
-        levelRank.forEach((p, idx) => {
-            levelText += `${idx + 1}. 玩家 #${p.userId.slice(0, 4)} - Lv. **${p.level}**\n`;
+        // 本週積分排名
+        let rankText = '';
+        weeklyRank.forEach((p, idx) => {
+            const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'][idx];
+            rankText += `${medal} 玩家 #${p.userId.slice(0, 4)} - **${p.weekly_points}** 積分\n`;
         });
-        embed.addFields({ name: '⭐ 最高等級', value: levelText || '暫無數據', inline: true });
+        embed.addFields({ name: '📊 本週積分榜', value: rankText || '暫無數據', inline: false });
 
-        // 最多經驗
-        let expText = '';
-        expRank.forEach((p, idx) => {
-            expText += `${idx + 1}. 玩家 #${p.userId.slice(0, 4)} - \`${p.exp}\` EXP\n`;
-        });
-        embed.addFields({ name: '📈 經驗排名', value: expText || '暫無數據', inline: true });
-
-        // 最多收集
+        // 道具收集最多
         let collectorText = '';
         collectorRank.forEach((p, idx) => {
-            collectorText += `${idx + 1}. 玩家 #${p.userId.slice(0, 4)} - **${p.inventory_count}** 件\n`;
+            collectorText += `${idx + 1}. 玩家 #${p.userId.slice(0, 4)} - **${p.collected_items}** 個\n`;
         });
-        embed.addFields({ name: '🎒 藏品最多', value: collectorText || '暫無數據', inline: true });
+        embed.addFields({ name: '📖 圖鑑收集榜', value: collectorText || '暫無數據', inline: true });
 
-        // 熵值控制
+        embed.setFooter({ text: '🥇 第 1 名: 500 金幣 | 🥈 第 2-5 名: 300 金幣 | 🥉 第 6-10 名: 100 金幣' });
+
+        message.reply({ embeds: [embed] });
+    }
+};
         let entropyText = '';
         entropyRank.forEach((p, idx) => {
             entropyText += `${idx + 1}. 玩家 #${p.userId.slice(0, 4)} - 平均 \`${p.avg_entropy}\`\n`;

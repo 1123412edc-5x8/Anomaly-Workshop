@@ -11,46 +11,49 @@ module.exports = {
         // 初始化玩家數據
         if (!data.players) data.players = {};
         if (!data.players[userId]) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ 無法查看進度')
-                .setDescription('🎮 你還沒有開始遊戲！使用 `~s` 開始拾荒吧！')
-                .setColor(0xFF0000);
-            return message.reply({ embeds: [embed] });
+            return message.reply('🎮 你還沒有開始遊戲！使用 `~s` 開始拾荒吧！');
         }
 
         const player = data.players[userId];
-        const level = player.level || 1;
-        const exp = player.exp || 0;
-        const nextLevelExp = level * 100;
-        const expProgress = Math.floor((exp / nextLevelExp) * 20);
+        const weekly_points = player.weekly_points || 0;
+        const inventory = player.inventory || [];
+        const collected = player.collected_items?.length || 0;
+
+        // 簡單的統計
+        const rarityCount = {
+            'common': inventory.filter(i => (i.rarity || 'common') === 'common').length,
+            'rare': inventory.filter(i => i.rarity === 'rare').length,
+            'epic': inventory.filter(i => i.rarity === 'epic').length,
+            'legendary': inventory.filter(i => i.rarity === 'legendary').length
+        };
 
         const embed = new EmbedBuilder()
-            .setTitle('📊 角色進度')
+            .setTitle('📊 你的進度')
             .setColor(0x00BFFF)
             .setThumbnail(message.author.displayAvatarURL())
             .addFields(
                 { 
-                    name: '🎯 等級進度',
-                    value: `等級：\`Lv. ${level}\`\n經驗：\`${exp}/${nextLevelExp}\`\n${'█'.repeat(expProgress)}${'░'.repeat(20 - expProgress)}`
+                    name: '📈 本週積分',
+                    value: `積分：\`${weekly_points}\`\n排名會在週一重置`
                 },
                 { 
                     name: '🎒 背包',
-                    value: `物品數量：\`${player.inventory?.length || 0}\` / 20\n平均耐久：\`${player.inventory?.length > 0 ? Math.floor(player.inventory.reduce((sum, item) => sum + item.durability, 0) / player.inventory.length) : 0}%\``
+                    value: `物品數量：\`${inventory.length}\`\n${'⚪ 普通: ' + rarityCount.common}\n${'💜 稀有: ' + rarityCount.rare}\n${'🔴 史詩: ' + rarityCount.epic}\n${'👑 傳說: ' + rarityCount.legendary}`
                 },
                 { 
-                    name: '🌀 熵值統計',
-                    value: `平均熵值：\`${player.inventory?.length > 0 ? Math.floor(player.inventory.reduce((sum, item) => sum + item.entropy, 0) / player.inventory.length) : 0}\`\n最高熵值：\`${player.inventory?.length > 0 ? Math.max(...player.inventory.map(item => item.entropy)) : 0}\``
+                    name: '📖 圖鑑進度',
+                    value: `已收集：\`${collected}/150\` (${Math.floor(collected/150*100)}%)\n使用 ~codex 查看詳詳細進度`
                 },
                 { 
                     name: '🗺️ 地區探索',
-                    value: `當前位置：\`${player.currentLocation || '工廠'}\`\n已訪問地區：\`${player.visited_locations?.join('、') || '工廠'}\``
-                },
-                { 
-                    name: '💎 資源',
-                    value: `熵結晶：\`${player.entropy_crystal || 0}\`\n維修次數：\`${player.repair_count || 0}\`\n合成次數：\`${player.combine_count || 0}\``
+                    value: `當前位置：\`${player.currentLocation || '工廠'}\`\n使用 ~map 切換地區`
                 }
             )
-            .setFooter({ text: '繼續冒險，突破自己的極限！' });
+            .setFooter({ text: '繼續冒險，尋求更稀有的物品！' });
+
+        message.reply({ embeds: [embed] });
+    }
+};
 
         message.reply({ embeds: [embed] });
     }

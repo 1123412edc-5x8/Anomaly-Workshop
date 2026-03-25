@@ -1,15 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
 
-// 製作一個進度條函數
-const createBar = (current, max) => {
-    const size = 10;
-    const line = '█';
-    const empty = '░';
-    const progress = Math.round((current / max) * size);
-    return line.repeat(progress) + empty.repeat(size - progress);
-};
-
 module.exports = {
     name: 'bag',
     aliases: ['b', '背包', 'ls', 'bag'],
@@ -21,38 +12,57 @@ module.exports = {
         if (!data.players) data.players = {};
         if (!data.players[userId]) {
             data.players[userId] = {
-                inventory: [{ name: "老舊鐵鎚", durability: 30, entropy: 5 }],
+                inventory: [],
                 currentLocation: '工廠'
             };
             db.write(data);
         }
 
         const items = data.players[userId].inventory;
+        const rarityIcons = { 'common': '⚪', 'rare': '💜', 'epic': '🔴', 'legendary': '👑' };
         
         const embed = new EmbedBuilder()
             .setAuthor({ name: `${message.author.username} 的私人維修間`, iconURL: message.author.displayAvatarURL() })
             .setTitle('🎒 存放中的異常碎片')
-            .setColor(0x2f3136) // Discord 暗色主題色
-            .setThumbnail('https://i.imgur.com/8N69y7v.png') // 找張鐵鎚或工坊的 icon
+            .setColor(0x2f3136)
+            .setThumbnail('https://i.imgur.com/8N69y7v.png')
             .setTimestamp();
 
         if (items.length === 0) {
-            embed.setDescription('*你的背包空空如也，看來得去撿點垃圾了...*');
+            embed.setDescription('*你的背包空空如也，去 ~s 拾荒吧！*');
         } else {
-            // 列出所有物品
+            // 分類顯示
+            const byRarity = {
+                'common': [],
+                'rare': [],
+                'epic': [],
+                'legendary': []
+            };
+
             items.forEach((item, index) => {
-                const durBar = createBar(item.durability, 100);
-                const entropyWarn = item.entropy > 50 ? '⚠️ 嚴重變異' : '🟢 穩定';
-                
-                embed.addFields({
-                    name: `【${index}】${item.name}`,
-                    value: `> 🛠️ **耐久：** \`${durBar}\` (${item.durability}%)\n> 🌀 **狀態：** ${entropyWarn} (熵值: ${item.entropy})`,
-                    inline: false
-                });
+                const rarity = item.rarity || 'common';
+                byRarity[rarity].push({ item, index });
+            });
+
+            let description = '';
+            Object.entries(byRarity).forEach(([rarity, itemList]) => {
+                if (itemList.length > 0) {
+                    description += `\n**${rarityIcons[rarity]} ${rarity.toUpperCase()}:**\n`;
+                    itemList.forEach(({ item, index }) => {
+                        description += `  [\`${index}\`] ${item.name}\n`;
+                    });
+                }
+            });
+
+            embed.setDescription(description);
+            embed.addFields({
+                name: '📊 統計',
+                value: `總計：${items.length} 件物品\n${'⚪ 普通: ' + (byRarity.common.length)}\n${'💜 稀有: ' + (byRarity.rare.length)}\n${'🔴 史詩: ' + (byRarity.epic.length)}\n${'👑 傳說: ' + (byRarity.legendary.length)}`,
+                inline: true
             });
         }
 
-        embed.setFooter({ text: '輸入 !repair 進行維護 | !combine 合成新物品' });
+        embed.setFooter({ text: '使用 ~combine [序號1] [序號2] [序號3] 合成三個同名物品' });
 
         message.reply({ embeds: [embed] });
     }
