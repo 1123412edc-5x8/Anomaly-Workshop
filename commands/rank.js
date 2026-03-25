@@ -45,12 +45,3 @@ module.exports = {
         message.reply({ embeds: [embed] });
     }
 };
-        let entropyText = '';
-        entropyRank.forEach((p, idx) => {
-            entropyText += `${idx + 1}. 玩家 #${p.userId.slice(0, 4)} - 平均 \`${p.avg_entropy}\`\n`;
-        });
-        embed.addFields({ name: '🌀 熵值高手', value: entropyText || '暫無數據', inline: true });
-
-        embed.setFooter({ text: '每小時更新一次' });
-
-        message.reply({ embeds: [embed] });
