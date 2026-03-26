@@ -4,14 +4,22 @@ const db = require('../utils/db');
 function parseTargetId(message, args = []) {
     if (!args.length) return message.author.id;
 
-    const raw = String(args[0]).trim();
+    const raw = String(args.join(' ')).trim();
     const mentionMatch = raw.match(/^<@!?(\d+)>$/);
     if (mentionMatch) return mentionMatch[1];
 
-    // 支援直接輸入玩家 ID（不限制長度與格式，避免舊資料鍵值無法查詢）
-    if (raw.length > 0) return raw;
+    // 支援直接輸入玩家 ID（可包含底線、連字號等）
+    if (raw.length > 0) return raw.replace(/\s+/g, '');
 
     return null;
+}
+
+function getCollectedCount(player) {
+    const raw = player?.collected_items;
+    if (Array.isArray(raw)) return raw.length;
+    if (raw && typeof raw === 'object') return Object.keys(raw).length;
+    if (typeof raw === 'number') return raw;
+    return 0;
 }
 
 module.exports = {
@@ -39,7 +47,7 @@ module.exports = {
         const players = Object.entries(playersObj).map(([userId, player]) => ({
             userId,
             weekly_points: Number(player?.weekly_points) || 0,
-            collected_items: Array.isArray(player?.collected_items) ? player.collected_items.length : 0
+            collected_items: getCollectedCount(player)
         }));
 
         if (!players.length) {
@@ -76,7 +84,7 @@ module.exports = {
 
         if (targetStats) {
             const targetWeeklyPoints = Number(targetStats.weekly_points) || 0;
-            const targetCollected = Array.isArray(targetStats.collected_items) ? targetStats.collected_items.length : 0;
+            const targetCollected = getCollectedCount(targetStats);
             embed.addFields({
                 name: '🎯 指定玩家查詢',
                 value: `ID: \`${targetUserId}\`\n本週積分：**${targetWeeklyPoints}**（第 **${targetWeeklyPos + 1}** 名）\n圖鑑收集：**${targetCollected}**（第 **${targetCollectorPos + 1}** 名）`,
