@@ -13,39 +13,36 @@ const { getCooldown, setCooldown } = require('./utils/cooldown');
 // 建立指令集
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js')).sort();
-
-const registerCommandKey = (key, command, sourceFile) => {
-    const normalizedKey = String(key || '').trim();
-    if (!normalizedKey) return;
-
-    const existing = client.commands.get(normalizedKey);
-    if (existing && existing !== command) {
-        const existingName = String(existing.name || '(unknown)');
-        const incomingName = String(command.name || '(unknown)');
-        console.warn(`⚠️ 指令鍵衝突: "${normalizedKey}" 已綁定到 ${existingName}，忽略來自 ${incomingName} (${sourceFile}) 的重複註冊。`);
-        return;
-    }
-
-    client.commands.set(normalizedKey, command);
-};
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    const mainName = String(command.name || '').trim();
-    if (mainName) {
-        client.commands.set(mainName, command);
-        client.commands.set(mainName.toLowerCase(), command);
-    }
+    try {
+        const command = require(filePath);
+        if (!command || typeof command.execute !== 'function') {
+            console.error(`❌ 載入指令失敗: ${file} 缺少 execute(message, args) 函式`);
+            continue;
+        }
 
-    if (Array.isArray(command.aliases)) {
-        command.aliases.forEach((alias) => {
-            if (typeof alias === 'string' && alias.trim()) {
-                client.commands.set(alias, command);
-                client.commands.set(alias.toLowerCase(), command);
-            }
-        });
+        const mainName = String(command.name || '').trim();
+        if (mainName) {
+            registerCommandKey(mainName, command, file);
+            registerCommandKey(mainName.toLowerCase(), command, file);
+        }
+
+        if (Array.isArray(command.aliases)) {
+            command.aliases.forEach((alias) => {
+                if (typeof alias === 'string' && alias.trim()) {
+                    registerCommandKey(alias, command, file);
+                    registerCommandKey(alias.toLowerCase(), command, file);
+                }
+            });
+        }
+    } catch (error) {
+        if (String(error && error.message).includes('指令鍵衝突')) {
+            throw error;
+        }
+        console.error(`❌ 載入指令失敗: ${file}`, error);
     }
 }
 
