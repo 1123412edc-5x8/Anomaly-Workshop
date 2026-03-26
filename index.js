@@ -18,7 +18,20 @@ const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const command = require(filePath);
-    client.commands.set(command.name, command);
+    const mainName = String(command.name || '').trim();
+    if (mainName) {
+        client.commands.set(mainName, command);
+        client.commands.set(mainName.toLowerCase(), command);
+    }
+
+    if (Array.isArray(command.aliases)) {
+        command.aliases.forEach((alias) => {
+            if (typeof alias === 'string' && alias.trim()) {
+                client.commands.set(alias, command);
+                client.commands.set(alias.toLowerCase(), command);
+            }
+        });
+    }
 }
 
 // 自動保存玩家資料 (每小時一次)
@@ -43,7 +56,7 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('~')) return;
 
     const args = message.content.slice(1).split(/\s+/);
-    const commandName = args[0];
+    const commandName = (args[0] || '').toLowerCase();
     const command = client.commands.get(commandName);
 
     if (command) {
