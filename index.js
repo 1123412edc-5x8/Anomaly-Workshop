@@ -13,22 +13,37 @@ const { getCooldown, setCooldown } = require('./utils/cooldown');
 // 建立指令集
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js')).sort();
+
+const registerCommandKey = (key, command, sourceFile) => {
+    const normalizedKey = String(key || '').trim();
+    if (!normalizedKey) return;
+
+    const existing = client.commands.get(normalizedKey);
+    if (existing && existing !== command) {
+        const existingName = String(existing.name || '(unknown)');
+        const incomingName = String(command.name || '(unknown)');
+        console.warn(`⚠️ 指令鍵衝突: "${normalizedKey}" 已綁定到 ${existingName}，忽略來自 ${incomingName} (${sourceFile}) 的重複註冊。`);
+        return;
+    }
+
+    client.commands.set(normalizedKey, command);
+};
 
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const command = require(filePath);
     const mainName = String(command.name || '').trim();
     if (mainName) {
-        client.commands.set(mainName, command);
-        client.commands.set(mainName.toLowerCase(), command);
+        registerCommandKey(mainName, command, file);
+        registerCommandKey(mainName.toLowerCase(), command, file);
     }
 
     if (Array.isArray(command.aliases)) {
         command.aliases.forEach((alias) => {
             if (typeof alias === 'string' && alias.trim()) {
-                client.commands.set(alias, command);
-                client.commands.set(alias.toLowerCase(), command);
+                registerCommandKey(alias, command, file);
+                registerCommandKey(alias.toLowerCase(), command, file);
             }
         });
     }
