@@ -33,7 +33,20 @@ const registerCommandKey = (key, command, sourceFile) => {
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const command = require(filePath);
-    client.commands.set(command.name, command);
+    const mainName = String(command.name || '').trim();
+    if (mainName) {
+        client.commands.set(mainName, command);
+        client.commands.set(mainName.toLowerCase(), command);
+    }
+
+    if (Array.isArray(command.aliases)) {
+        command.aliases.forEach((alias) => {
+            if (typeof alias === 'string' && alias.trim()) {
+                client.commands.set(alias, command);
+                client.commands.set(alias.toLowerCase(), command);
+            }
+        });
+    }
 }
 
 // 自動保存玩家資料 (每小時一次)
