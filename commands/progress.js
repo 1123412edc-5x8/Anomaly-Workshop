@@ -59,5 +59,3 @@ module.exports = {
 };
 
         message.reply({ embeds: [embed] });
-    }
-};
