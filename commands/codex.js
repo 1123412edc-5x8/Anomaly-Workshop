@@ -68,7 +68,7 @@ function updateCodex(userId) {
 
 module.exports = {
     name: 'codex',
-    aliases: ['c', '圖鑑', 'codex'],
+    aliases: ['cdx', '圖鑑', 'codex'],
     execute: async (message) => {
         const userId = message.author.id;
         const data = db.read();

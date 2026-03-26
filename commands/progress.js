@@ -3,13 +3,23 @@ const db = require('../utils/db');
 
 module.exports = {
     name: 'progress',
-    aliases: ['progress', '進度'],
+    aliases: ['p', 'progress', '進度'],
     execute: async (message) => {
         const userId = message.author.id;
-        let data = db.read();
+        let data;
+        try {
+            data = db.read();
+        } catch (error) {
+            console.error('讀取資料失敗 [progress]:', error);
+            return message.reply('❌ 讀取進度資料失敗，請稍後再試。');
+        }
 
         // 初始化玩家數據
-        if (!data.players) data.players = {};
+        if (!data || typeof data !== 'object') {
+            return message.reply('❌ 玩家資料格式異常，請通知管理員檢查 data.json。');
+        }
+
+        if (!data.players || typeof data.players !== 'object') data.players = {};
         if (!data.players[userId]) {
             return message.reply('🎮 你還沒有開始遊戲！使用 `~s` 開始拾荒吧！');
         }
@@ -56,4 +66,5 @@ module.exports = {
 };
 
         message.reply({ embeds: [embed] });
-    
+    }
+};
