@@ -13,7 +13,7 @@ function parseTargetId(message, args = []) {
 
     return null;
 }
-
+ 
 function getCollectedCount(player) {
     const raw = player?.collected_items;
     if (Array.isArray(raw)) return raw.length;
