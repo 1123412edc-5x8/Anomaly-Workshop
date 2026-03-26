@@ -8,7 +8,8 @@ function parseTargetId(message, args = []) {
     const mentionMatch = raw.match(/^<@!?(\d+)>$/);
     if (mentionMatch) return mentionMatch[1];
 
-    if (/^\d{6,}$/.test(raw)) return raw;
+    // 支援直接輸入玩家 ID（不限制長度與格式，避免舊資料鍵值無法查詢）
+    if (raw.length > 0) return raw;
 
     return null;
 }
@@ -30,7 +31,11 @@ module.exports = {
             return message.reply('❌ 讀取排行榜資料失敗，請稍後再試。');
         }
 
-        const playersObj = data.players || {};
+        if (!data || typeof data !== 'object') {
+            return message.reply('❌ 排行榜資料格式異常，請通知管理員檢查 data.json。');
+        }
+
+        const playersObj = (data.players && typeof data.players === 'object') ? data.players : {};
         const players = Object.entries(playersObj).map(([userId, player]) => ({
             userId,
             weekly_points: Number(player?.weekly_points) || 0,
