@@ -8,14 +8,25 @@ function getCollectedCount(player) {
 
 module.exports = {
     name: 'progress',
-    aliases: ['progress', '進度'],
-    execute: async (message) => {
+    aliases: ['p', 'progress', '進度'],
+    execute: async (message, args = []) => {
         const userId = message.author.id;
-        let data = db.read();
 
-        // 初始化玩家數據
-        if (!data.players) data.players = {};
-        if (!data.players[userId]) {
+        let data;
+        try {
+            data = db.read();
+        } catch (error) {
+            console.error('讀取資料失敗 [progress]:', error);
+            return message.reply('❌ 讀取進度資料失敗，請稍後再試。');
+        }
+
+        if (!data || typeof data !== 'object') {
+            return message.reply('❌ 玩家資料格式異常，請通知管理員檢查 data.json。');
+        }
+
+        const players = (data.players && typeof data.players === 'object') ? data.players : {};
+        const player = players[userId];
+        if (!player) {
             return message.reply('🎮 你還沒有開始遊戲！使用 `~s` 開始拾荒吧！');
         }
 
@@ -59,3 +70,5 @@ module.exports = {
 };
 
         message.reply({ embeds: [embed] });
+    }
+};
