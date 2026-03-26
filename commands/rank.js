@@ -99,5 +99,3 @@ module.exports = {
         embed.setFooter({ text: '每小時更新一次' });
 
         message.reply({ embeds: [embed] });
-    }
-};
