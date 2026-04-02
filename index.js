@@ -10,113 +10,92 @@ const client = new Client({
 const db = require('./utils/db');
 const { getCooldown, setCooldown } = require('./utils/cooldown');
 
-// 建立指令集
 client.commands = new Collection();
-const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    try {
-        const command = require(filePath);
-        if (!command || typeof command.execute !== 'function') {
-            console.error(`❌ 載入指令失敗: ${file} 缺少 execute(message, args) 函式`);
-            continue;
-        }
-
-        const mainName = String(command.name || '').trim();
-        if (mainName) {
-            registerCommandKey(mainName, command, file);
-            registerCommandKey(mainName.toLowerCase(), command, file);
-        }
-
-        if (Array.isArray(command.aliases)) {
-            command.aliases.forEach((alias) => {
-                if (typeof alias === 'string' && alias.trim()) {
-                    registerCommandKey(alias, command, file);
-                    registerCommandKey(alias.toLowerCase(), command, file);
-                }
-            });
-        }
-    } catch (error) {
-        if (String(error && error.message).includes('指令鍵衝突')) {
-            throw error;
-        }
-        console.error(`❌ 載入指令失敗: ${file}`, error);
+// 註冊函式：確保在循環之前定義
+function registerCommandKey(key, command, fileName) {
+    const normalizedKey = String(key).trim().toLowerCase();
+    if (!normalizedKey) return;
+    
+    const existing = client.commands.get(normalizedKey);
+    if (existing && existing !== command) {
+        console.warn(`⚠️ [警告] 鍵衝突: "${normalizedKey}" 已被 ${existing.name} 佔用，跳過來自 ${fileName} 的註冊。`);
+        return;
     }
+    client.commands.set(normalizedKey, command);
 }
 
-// 自動保存玩家資料 (每小時一次)
-setInterval(() => {
-    try {
-        const data = db.read();
-        if (data && data.players) {
-            Object.keys(data.players).forEach(userId => {
-                if (data.players[userId]) {
-                    data.players[userId].last_updated = new Date().toISOString();
-                }
-            });
-            db.write(data);
-            console.log(`[${new Date().toLocaleString('zh-TW')}] 自動保存玩家資料`);
+const commandsPath = path.join(__dirname, 'commands');
+if (fs.existsSync(commandsPath)) {
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+    for (const file of commandFiles) {
+        const filePath = path.join(commandsPath, file);
+        
+        // 強制清除 Node.js 的載入快取，確保讀到最新檔案
+        delete require.cache[require.resolve(filePath)];
+        
+        try {
+            const command = require(filePath);
+            
+            if (!command || typeof command.execute !== 'function') {
+                console.error(`❌ ${file} 格式錯誤: 缺少 execute 函式`);
+                continue;
+            }
+
+            // 註冊主名稱
+            if (command.name) {
+                registerCommandKey(command.name, command, file);
+            }
+
+            // 註冊別名
+            if (Array.isArray(command.aliases)) {
+                command.aliases.forEach(alias => registerCommandKey(alias, command, file));
+            }
+            
+            console.log(`✅ 成功載入指令: ${file}`);
+        } catch (error) {
+            console.error(`❌ 載入指令 ${file} 時發生嚴重錯誤:`, error.message);
         }
-    } catch (error) {
-        console.error(`[${new Date().toLocaleString('zh-TW')}] 自動保存失敗:`, error);
     }
-}, 60 * 60 * 1000); // 1小時
+} else {
+    console.error('❌ 找不到 commands 資料夾！');
+}
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('~')) return;
 
-    const args = message.content.slice(1).split(/\s+/);
-    const commandName = (args[0] || '').toLowerCase();
+    const args = message.content.slice(1).trim().split(/\s+/);
+    const commandName = args.shift().toLowerCase();
     const command = client.commands.get(commandName);
 
     if (command) {
         try {
-            // 檢查冷卻時間 (檢查主要名稱和別名)
-            const cooldownKey = command.name; // 使用主要名稱作為冷卻鍵
+            const cooldownKey = command.name || commandName;
             const cooldownRemaining = getCooldown(message.author.id, cooldownKey);
             if (cooldownRemaining > 0) {
                 const embed = new EmbedBuilder()
                     .setTitle('⏰ 冷卻中')
-                    .setDescription(`請等待 ${cooldownRemaining} 秒後再使用此指令！`)
+                    .setDescription(`請等待 ${cooldownRemaining} 秒後再試。`)
                     .setColor(0xFFFF00);
-                return message.reply({ embeds: [embed] }).catch(err => console.error('回覆冷卻訊息失敗:', err));
+                return message.reply({ embeds: [embed] }).catch(() => {});
             }
 
-            await command.execute(message, args.slice(1));
-            
-            // 設定冷卻時間
+            await command.execute(message, args);
             setCooldown(message.author.id, cooldownKey);
         } catch (error) {
-            console.error(`指令執行錯誤 [${commandName}]:`, error);
-            message.reply('❌ 執行指令時發生錯誤！').catch(err => console.error('回覆錯誤訊息失敗:', err));
+            console.error(`指令 [${commandName}] 執行出錯:`, error);
+            message.reply('❌ 執行指令時發生內部錯誤。').catch(() => {});
         }
     }
 });
 
 client.on('ready', () => {
-    console.log(`[${new Date().toLocaleString('zh-TW')}] ${client.user.tag} 已上線！`);
-    console.log(`[${new Date().toLocaleString('zh-TW')}] 已載入 ${client.commands.size} 個指令`);
+    console.log(`✅ ${client.user.tag} 已上線！`);
+    console.log(`📊 總計載入 ${client.commands.size} 個指令觸發關鍵字。`);
 });
 
-client.on('error', (error) => {
-    console.error(`[${new Date().toLocaleString('zh-TW')}] Discord客戶端錯誤:`, error);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error(`[${new Date().toLocaleString('zh-TW')}] 未處理的Promise拒絕:`, reason);
-});
-
-process.on('uncaughtException', (error) => {
-    console.error(`[${new Date().toLocaleString('zh-TW')}] 未捕獲的異常:`, error);
+client.login(process.env.TOKEN).catch(err => {
+    console.error('❌ 登入失敗:', err.message);
     process.exit(1);
 });
-
-// 檢查環境變數
-if (!process.env.TOKEN) {
-    console.error('❌ 未找到 TOKEN 環境變數！請檢查 .env 文件。');
-    process.exit(1);
-}
-
-client.login(process.env.TOKEN);
