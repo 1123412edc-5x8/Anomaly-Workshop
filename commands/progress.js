@@ -1,14 +1,9 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
 
-function getCollectedCount(player) {
-    if (Array.isArray(player?.collected_items)) return player.collected_items.length;
-    return 0;
-}
-
 module.exports = {
     name: 'progress',
-    aliases: ['p', 'progress', '進度'],
+    aliases: ['p', '進度'],
     execute: async (message, args = []) => {
         const userId = message.author.id;
 
@@ -17,22 +12,17 @@ module.exports = {
             data = db.read();
         } catch (error) {
             console.error('讀取資料失敗 [progress]:', error);
-            return message.reply('❌ 讀取進度資料失敗，請稍後再試。');
+            return message.reply('❌ 讀取資料失敗。');
         }
 
-        if (!data || typeof data !== 'object') {
-            return message.reply('❌ 玩家資料格式異常，請通知管理員檢查 data.json。');
-        }
-
-        const players = (data.players && typeof data.players === 'object') ? data.players : {};
-        const player = players[userId];
+        const player = data?.players?.[userId];
         if (!player) {
-            return message.reply('🎮 你還沒有開始遊戲！使用 `~s` 開始拾荒吧！');
+            return message.reply('🎮 你還沒有開始遊戲！使用 `~s` 開始吧！');
         }
 
         const weeklyPoints = Number(player.weekly_points) || 0;
         const inventory = Array.isArray(player.inventory) ? player.inventory : [];
-        const collected = getCollectedCount(player);
+        const collected = Array.isArray(player.collected_items) ? player.collected_items.length : 0;
 
         const rarityCount = {
             common: inventory.filter(i => (i?.rarity || 'common') === 'common').length,
@@ -42,7 +32,7 @@ module.exports = {
         };
 
         const embed = new EmbedBuilder()
-            .setTitle('📊 你的進度')
+            .setTitle('📊 你的冒險進度')
             .setColor(0x00BFFF)
             .setThumbnail(message.author.displayAvatarURL())
             .addFields(
@@ -56,7 +46,7 @@ module.exports = {
                 },
                 {
                     name: '📖 圖鑑進度',
-                    value: `已收集：\`${collected}/150\` (${Math.floor((collected / 150) * 100)}%)\n使用 ~codex 查看詳詳細進度`
+                    value: `已收集：\`${collected}/150\` (${Math.floor((collected / 150) * 100)}%)\n使用 ~codex 查看詳細內容`
                 },
                 {
                     name: '🗺️ 地區探索',
@@ -65,8 +55,6 @@ module.exports = {
             )
             .setFooter({ text: '繼續冒險，尋求更稀有的物品！' });
 
-        message.reply({ embeds: [embed] });
+        return message.reply({ embeds: [embed] }).catch(err => console.error('發送進度失敗:', err));
     }
 };
-
-        message.reply({ embeds: [embed] });
