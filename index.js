@@ -12,7 +12,7 @@ const { getCooldown, setCooldown } = require('./utils/cooldown');
 
 client.commands = new Collection();
 
-// 註冊函式：確保在循環之前定義
+// 註冊函式
 function registerCommandKey(key, command, fileName) {
     const normalizedKey = String(key).trim().toLowerCase();
     if (!normalizedKey) return;
@@ -25,43 +25,54 @@ function registerCommandKey(key, command, fileName) {
     client.commands.set(normalizedKey, command);
 }
 
+// --- 1. 自動載入 Commands 指令 ---
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
-        
-        // 強制清除 Node.js 的載入快取，確保讀到最新檔案
         delete require.cache[require.resolve(filePath)];
         
         try {
             const command = require(filePath);
-            
             if (!command || typeof command.execute !== 'function') {
                 console.error(`❌ ${file} 格式錯誤: 缺少 execute 函式`);
                 continue;
             }
 
-            // 註冊主名稱
-            if (command.name) {
-                registerCommandKey(command.name, command, file);
-            }
-
-            // 註冊別名
+            if (command.name) registerCommandKey(command.name, command, file);
             if (Array.isArray(command.aliases)) {
                 command.aliases.forEach(alias => registerCommandKey(alias, command, file));
             }
-            
             console.log(`✅ 成功載入指令: ${file}`);
         } catch (error) {
             console.error(`❌ 載入指令 ${file} 時發生嚴重錯誤:`, error.message);
         }
     }
-} else {
-    console.error('❌ 找不到 commands 資料夾！');
 }
 
+// --- 2. 自動載入 Events 事件 (這是你新增的部分) ---
+const eventsPath = path.join(__dirname, 'events');
+if (fs.existsSync(eventsPath)) {
+    const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+
+    for (const file of eventFiles) {
+        const filePath = path.join(eventsPath, file);
+        const event = require(filePath);
+        
+        if (event.once) {
+            client.once(event.name, (...args) => event.execute(...args));
+        } else {
+            client.on(event.name, (...args) => event.execute(...args));
+        }
+        console.log(`✅ 成功載入事件: ${file}`);
+    }
+} else {
+    console.warn('⚠️ 找不到 events 資料夾，跳過事件載入。');
+}
+
+// --- 3. 處理文字指令 (messageCreate) ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('~')) return;
 
@@ -90,9 +101,10 @@ client.on('messageCreate', async (message) => {
     }
 });
 
+// --- 4. 啟動回報 ---
 client.on('ready', () => {
     console.log(`✅ ${client.user.tag} 已上線！`);
-    console.log(`📊 總計載入 ${client.commands.size} 個指令觸發關鍵字。`);
+    console.log(`📊 總計載入 ${client.commands.size} 個指令關鍵字。`);
 });
 
 client.login(process.env.TOKEN).catch(err => {
