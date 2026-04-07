@@ -70,7 +70,7 @@ client.on('messageCreate', async (message) => {
                 // 計算 Discord Timestamp 秒數
                 const unlockAt = Math.floor(Date.now() / 1000) + cooldownRemaining;
                 const embed = new EmbedBuilder()
-                    .setTitle('⏰ 指令冷優中')
+                    .setTitle('⏰ 指令冷卻中')
                     .setDescription(`請在 **<t:${unlockAt}:t>** (<t:${unlockAt}:R>) 後再試。`)
                     .setColor(0xFFFF00);
                 return message.reply({ embeds: [embed] });
