@@ -42,7 +42,7 @@ module.exports = {
             });
 
             const itemList = Object.entries(itemCounts)
-                .map(([name, count]) => `📦 **${name}** x${count}`)
+                .map(([name, count]) => `**${name}** x${count}`)
                 .join('\n');
 
             embed.addFields({ name: '擁有的物品', value: itemList });
