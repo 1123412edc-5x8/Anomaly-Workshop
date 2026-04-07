@@ -1,0 +1,12 @@
+{
+  "WELCOME2026": {
+    "reward_crystals": 500,
+    "reward_items": ["高級維修工具", "能量核心"],
+    "max_uses": 9999
+  },
+  "ANOMALY666": {
+    "reward_crystals": 100,
+    "reward_items": ["精密螺絲起子"],
+    "max_uses": 100
+  }
+}
