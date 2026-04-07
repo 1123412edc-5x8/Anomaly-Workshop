@@ -1,51 +1,60 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
 
+// 這是你提供的清單，我們把它當作「分類辭典」
+const itemReference = {
+    '工業零件': ['精密螺栓', '液壓活塞', '銅製線圈', '生鏽齒輪', '廢棄鋼板', '機油濾芯', '破損感應器', '鈦合金框架', '冷卻風扇', '廢棄電路板', '萬用螺絲起子', '壓縮氣瓶', '工業用鑽頭', '絕緣膠帶', '微型變壓器', '耐熱陶瓷管', '鑄鐵曲軸', '氣動軟管', '電壓表', '重型扳手', '液壓油箱', '鋁製鉚釘', '鋼絲刷', '焊接面具', '碳刷電機', '軸承套筒', '變頻器殼', '皮帶輪', '氣缸蓋', '機床切屑', '噴漆噴頭', '拋光輪', '砂輪片', '螺紋規', '萬向接頭', '導軌滑塊', '滾珠絲槓', '聯軸器', '密封圈', '散熱片', '配電盤', '保險絲座', '指示燈', '急停按鈕', '傳感器接頭', '排線排插', '電磁閥', '真空泵浦', '過濾棉', '工業潤滑油'],
+    '生物素材': ['變異幾何體', '發光真菌絲', '硬化甲殼', '不明結晶', '焦黑骨架', '輻射塵埃', '乾涸的粘液', '碎裂的晶核', '乾枯根鬚', '變異種子', '孢子囊腫', '硬質纖維', '風化岩碎片', '沙龍捲餘燼', '石化木塊', '酸蝕葉片', '發熱的石塊', '多孔海綿體', '靈能礦渣', '異常昆蟲翅膀', '鱗片殘渣', '獸爪斷片', '刺鼻的粉末', '螢光液體', '古怪的化石', '地衣結塊', '鹽漬土塊', '半透明膜層', '寄生菌絲', '堅韌的藤蔓', '黑色樹脂', '脆弱的蛋殼', '變異鳥羽', '蛇蛻皮', '發霉的皮革', '苦澀的漿果', '帶刺的灌木', '中空的蘆葦', '結晶化的露水', '異常土壤', '深紅粘土', '火山灰塵', '磁性沙礫', '枯萎的花瓣', '惡臭的膽汁', '靈性塵土', '虛空雜質', '腐爛的樹皮', '乾裂的殼角', '不明毛髮'],
+    '精密組件': ['脈衝電容', '冷凍液管', '樣本試管', '破碎記憶體', '能量核心', '光纖束', '超導陶瓷', '雷射聚焦鏡', '離心機轉子', '顯微鏡鏡片', '真空密封罐', '化學試劑瓶', '培養皿殘渣', '移液管頭', '電泳槽', '掃描探針', '量子芯片', '生物傳感器', '低溫存儲匣', '電漿噴嘴', '納米級探針', '重力校準儀', '同位素標籤', '多光譜膠捲', '防護服布料', '無菌手套', '過濾膜', '生化檢測卡', '微流體晶片', '光刻機快門', '反射鏡', '稜鏡組', '衍射光柵', '衰減器', '信號擴大器', '電極貼片', '神經接點', '電解液盒', '石英坩堝', '貴金屬觸點', '半導體晶圓', '純淨水管', '臭氧發生器', '微型反應爐', '中子源', '電子槍', '磁拘束環', '超低溫探頭', '熱補償電路', '真空度表']
+};
+
 module.exports = {
     name: 'bag',
-    aliases: ['b', '背包', 'inventory'],
+    aliases: ['b', '背包'],
     execute: async (message) => {
         const userId = message.author.id;
-        let data = db.read() || { players: {} };
-
-        // 🛡️ 安全檢查：如果玩家完全沒資料，幫他建立一個空的
-        if (!data.players[userId]) {
-            data.players[userId] = { 
-                inventory: [], 
-                entropy_crystal: 0, 
-                currentLocation: '工廠' 
-            };
-            db.write(data);
-        }
-
+        const data = db.read() || { players: {} };
         const player = data.players[userId];
-        
-        // 🛡️ 再次確保 inventory 是一個陣列，防止 push 報錯
-        if (!Array.isArray(player.inventory)) {
-            player.inventory = [];
-            db.write(data);
+
+        if (!player || !player.inventory || player.inventory.length === 0) {
+            return message.reply('🎒 你的背包空空如也。');
         }
+
+        // 建立分類容器
+        const categories = {
+            '🛠️ 工業零件': [],
+            '🧬 生物素材': [],
+            '🧪 精密組件': [],
+            '📦 其他物資': []
+        };
+
+        // 統計物品數量並分類
+        const counts = {};
+        player.inventory.forEach(item => {
+            const itemName = typeof item === 'string' ? item : item.name;
+            counts[itemName] = (counts[itemName] || 0) + 1;
+        });
+
+        // 進行邏輯分類
+        Object.keys(counts).forEach(name => {
+            const displayStr = `\`${name}\` x${counts[name]}`;
+            if (itemReference['工業零件'].includes(name)) categories['🛠️ 工業零件'].push(displayStr);
+            else if (itemReference['生物素材'].includes(name)) categories['🧬 生物素材'].push(displayStr);
+            else if (itemReference['精密組件'].includes(name)) categories['🧪 精密組件'].push(displayStr);
+            else categories['其他物資'].push(displayStr);
+        });
 
         const embed = new EmbedBuilder()
-            .setTitle('🎒 隨身背包')
-            .setColor(0x2ecc71)
-            .setDescription(`結晶：\`${player.entropy_crystal || 0}\` 💎\n目前位置：\`${player.currentLocation || '工廠'}\``);
+            .setTitle('🎒 倖存者背包')
+            .setColor(0x3498db)
+            .setDescription(`結晶：\`${player.entropy_crystal || 0}\` 💎`)
+            .setTimestamp();
 
-        if (player.inventory.length === 0) {
-            embed.addFields({ name: '狀態', value: '背包空空如也，快去拾荒吧！' });
-        } else {
-            // 將物品分組顯示 (例如：零件 x3)
-            const itemCounts = {};
-            player.inventory.forEach(item => {
-                const name = typeof item === 'string' ? item : item.name;
-                itemCounts[name] = (itemCounts[name] || 0) + 1;
-            });
-
-            const itemList = Object.entries(itemCounts)
-                .map(([name, count]) => `**${name}** x${count}`)
-                .join('\n');
-
-            embed.addFields({ name: '擁有的物品', value: itemList });
+        // 只有該分類有東西時才顯示
+        for (const [catName, items] of Object.entries(categories)) {
+            if (items.length > 0) {
+                embed.addFields({ name: catName, value: items.join('、 '), inline: false });
+            }
         }
 
         message.reply({ embeds: [embed] });
