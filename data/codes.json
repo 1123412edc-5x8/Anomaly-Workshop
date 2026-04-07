@@ -8,5 +8,10 @@
     "reward_crystals": 100,
     "reward_items": ["精密螺絲起子"],
     "max_uses": 100
+  },
+  "漁人婕": {
+    "reward_crystals":70000,
+    "max_uses": 8
   }
+  
 }
