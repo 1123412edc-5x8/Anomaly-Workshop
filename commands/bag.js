@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const db = require('../utils/db');
 
 const ITEM_DB = {
@@ -8,12 +8,23 @@ const ITEM_DB = {
 };
 
 module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('bag')
+        .setDescription('查看背包'),
     name: 'bag',
     aliases: ['b', '背包'],
-    execute: async (message) => {
+    execute: async (interactionOrMessage) => {
         const data = db.read();
-        const player = data.players[message.author.id];
-        if (!player || !player.inventory?.length) return message.reply('🎒 背包空空如也。');
+        const userId = interactionOrMessage.author?.id || interactionOrMessage.user.id;
+        const player = data.players[userId];
+        if (!player || !player.inventory?.length) {
+            const reply = '🎒 背包空空如也。';
+            if (interactionOrMessage.reply) {
+                return interactionOrMessage.reply(reply);
+            } else {
+                return interactionOrMessage.reply({ content: reply, ephemeral: true });
+            }
+        }
 
         const counts = {};
         player.inventory.forEach(i => { const n = typeof i === 'string' ? i : i.name; counts[n] = (counts[n] || 0) + 1; });
@@ -31,6 +42,13 @@ module.exports = {
         for (const [cat, items] of Object.entries(categorized)) {
             if (items.length) embed.addFields({ name: cat, value: items.join('\n'), inline: true });
         }
-        message.reply({ embeds: [embed] });
+
+        if (interactionOrMessage.reply) {
+            // Message
+            interactionOrMessage.reply({ embeds: [embed] });
+        } else {
+            // Interaction
+            interactionOrMessage.reply({ embeds: [embed] });
+        }
     }
 };
