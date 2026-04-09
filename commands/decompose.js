@@ -1,37 +1,32 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const db = require('../utils/db');
 const items = require('../utils/items');
 
 module.exports = {
-    name: 'decompose',
-    aliases: ['d', '分解'],
-    execute: async (message, args) => {
-        if (!args || args.length < 1) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ 格式錯誤')
-                .setDescription('請輸入 `~d [序號]`\n例如：`~d 0`')
-                .setColor(0xFF0000);
-            return message.reply({ embeds: [embed] });
-        }
+    data: new SlashCommandBuilder()
+        .setName('decompose')
+        .setDescription('分解物品')
+        .addIntegerOption(option =>
+            option.setName('index')
+                .setDescription('物品編號')
+                .setRequired(true)
+        ),
+    execute: async (interaction) => {
+        const idx = interaction.options.getInteger('index');
 
-        const userId = message.author.id;
+        const userId = interaction.user.id;
         let data = db.read();
         const player = data.players?.[userId];
 
         if (!player || !player.inventory || player.inventory.length < 1) {
-            return message.reply('❌ 背包沒有物品，無法分解。');
+            return interaction.reply({ content: '❌ 背包沒有物品，無法分解。', ephemeral: true });
         }
 
-        const idx = parseInt(args[0]);
-
         if (isNaN(idx) || idx < 0 || idx >= player.inventory.length) {
-            return message.reply('❌ 序號無效或超出了背包範圍！');
+            return interaction.reply({ content: '❌ 序號無效或超出了背包範圍！', ephemeral: true });
         }
 
         const item = player.inventory[idx];
-
-        // 檢查是否可分解 (假設所有物品都可以分解，或檢查 decomposable)
-        // 為了簡單，所有物品都可以分解
 
         // 移除物品
         player.inventory.splice(idx, 1);
@@ -55,7 +50,7 @@ module.exports = {
         }
 
         player.inventory.push(...newItems);
-        player.weekly_points = (player.weekly_points || 0) + 10; // 較少的點數
+        player.weekly_points = (player.weekly_points || 0) + 10;
 
         db.write(data);
 
@@ -64,6 +59,6 @@ module.exports = {
             .setDescription(`**${item.name}** 已分解為：\n${newItems.map(i => `• ${i.name}`).join('\n')}`)
             .setColor(0xFFA500);
 
-        message.reply({ embeds: [res] });
+        interaction.reply({ embeds: [res] });
     }
 };

@@ -1,69 +1,70 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const db = require('../utils/db');
-// 確保 event.js 存在，否則這行會報錯
-// const { getActiveEvents } = require('./event'); 
+const items = require('../utils/items');
 
 module.exports = {
-    name: 'combine',
-        aliases: ['c', '合成', 'upgrade'],
-            execute: async (message, args) => { // 直接用傳進來的 args
-                    // 因為 index.js 傳進來的是去掉指令名的 args，所以長度檢查改為 3
-                            if (!args || args.length < 3) {
-                                        const embed = new EmbedBuilder()
-                                                        .setTitle('❌ 格式錯誤')
-                                                                        .setDescription('請輸入 `~c [序號1] [序號2] [序號3]`\n例如：`~c 0 1 2`')
-                                                                                        .setColor(0xFF0000);
-                                                                                                    return message.reply({ embeds: [embed] });
-                                                                                                            }
+    data: new SlashCommandBuilder()
+        .setName('combine')
+        .setDescription('合成物品')
+        .addIntegerOption(option =>
+            option.setName('index1')
+                .setDescription('第一個物品編號')
+                .setRequired(true)
+        )
+        .addIntegerOption(option =>
+            option.setName('index2')
+                .setDescription('第二個物品編號')
+                .setRequired(true)
+        ),
+    execute: async (interaction) => {
+        const idx1 = interaction.options.getInteger('index1');
+        const idx2 = interaction.options.getInteger('index2');
 
-                                                                                                                    const userId = message.author.id;
-                                                                                                                            let data = db.read();
-                                                                                                                                    const player = data.players?.[userId];
+        const userId = interaction.user.id;
+        let data = db.read();
+        const player = data.players?.[userId];
 
-                                                                                                                                            if (!player || !player.inventory || player.inventory.length < 3) {
-                                                                                                                                                        return message.reply('❌ 背包物品不足 3 個，無法合成。');
-                                                                                                                                                                }
+        if (!player || !player.inventory || player.inventory.length < 2) {
+            return interaction.reply({ content: '❌ 背包物品不足 2 個，無法合成。', ephemeral: true });
+        }
 
-                                                                                                                                                                        // 轉為數字並檢查範圍
-                                                                                                                                                                                const idxs = args.slice(0, 3).map(x => parseInt(x));
-                                                                                                                                                                                        const [i1, i2, i3] = idxs;
+        if (idx1 === idx2 || idx1 < 0 || idx1 >= player.inventory.length || idx2 < 0 || idx2 >= player.inventory.length) {
+            return interaction.reply({ content: '❌ 序號無效、重複或超出了背包範圍！', ephemeral: true });
+        }
 
-                                                                                                                                                                                                // 檢查：是否為數字、是否重複、是否超出範圍
-                                                                                                                                                                                                        if (idxs.some(isNaN) || 
-                                                                                                                                                                                                                    new Set(idxs).size !== 3 || 
-                                                                                                                                                                                                                                idxs.some(i => i < 0 || i >= player.inventory.length)) {
-                                                                                                                                                                                                                                            return message.reply('❌ 序號無效、重複或超出了背包範圍！');
-                                                                                                                                                                                                                                                    }
+        const item1 = player.inventory[idx1];
+        const item2 = player.inventory[idx2];
 
-                                                                                                                                                                                                                                                            const item1 = player.inventory[i1];
-                                                                                                                                                                                                                                                                    const item2 = player.inventory[i2];
-                                                                                                                                                                                                                                                                            const item3 = player.inventory[i3];
+        // 檢查合成表
+        const recipeKey = `${item1.name}+${item2.name}`;
+        const reverseKey = `${item2.name}+${item1.name}`;
+        const result = items.recipes[recipeKey] || items.recipes[reverseKey];
 
-                                                                                                                                                                                                                                                                                    if (item1.name !== item2.name || item1.name !== item3.name) {
-                                                                                                                                                                                                                                                                                                return message.reply('❌ 必須選擇 3 個**同名**物品！');
-                                                                                                                                                                                                                                                                                                        }
+        if (!result) {
+            return interaction.reply({ content: '❌ 這兩個物品無法合成。請檢查合成表。', ephemeral: true });
+        }
 
-                                                                                                                                                                                                                                                                                                                // 執行合成
-                                                                                                                                                                                                                                                                                                                        const newItem = {
-                                                                                                                                                                                                                                                                                                                                    name: `✨ ${item1.name}`,
-                                                                                                                                                                                                                                                                                                                                                origin: item1.origin || '未知',
-                                                                                                                                                                                                                                                                                                                                                            rarity: 'rare'
-                                                                                                                                                                                                                                                                                                                                                                    };
+        // 移除物品（先移除較大的索引）
+        const indices = [idx1, idx2].sort((a, b) => b - a);
+        indices.forEach(idx => player.inventory.splice(idx, 1));
 
-                                                                                                                                                                                                                                                                                                                                                                            // 倒序刪除 (核心邏輯正確，保留)
-                                                                                                                                                                                                                                                                                                                                                                                    const sortedIdx = [...idxs].sort((a, b) => b - a);
-                                                                                                                                                                                                                                                                                                                                                                                            sortedIdx.forEach(idx => player.inventory.splice(idx, 1));
+        // 添加合成結果
+        const newItem = {
+            name: result,
+            origin: item1.origin || '合成',
+            rarity: 'rare'
+        };
 
-                                                                                                                                                                                                                                                                                                                                                                                                    player.inventory.push(newItem);
-                                                                                                                                                                                                                                                                                                                                                                                                            player.weekly_points = (player.weekly_points || 0) + 50;
+        player.inventory.push(newItem);
+        player.weekly_points = (player.weekly_points || 0) + 50;
 
-                                                                                                                                                                                                                                                                                                                                                                                                                    db.write(data);
+        db.write(data);
 
-                                                                                                                                                                                                                                                                                                                                                                                                                            const res = new EmbedBuilder()
-                                                                                                                                                                                                                                                                                                                                                                                                                                        .setTitle('✨ 合成成功！')
-                                                                                                                                                                                                                                                                                                                                                                                                                                                    .setDescription(`3 個 **${item1.name}** 已進化為 **${newItem.name}**`)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                .setColor(0x00FFFF);
+        const res = new EmbedBuilder()
+            .setTitle('🌀 合成成功！')
+            .setDescription(`**${item1.name}** + **${item2.name}** 已合成為 **${newItem.name}**`)
+            .setColor(0x00FFFF);
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                        message.reply({ embeds: [res] });
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                            };
+        interaction.reply({ embeds: [res] });
+    }
+};
