@@ -13,9 +13,7 @@ const client = new Client({
 
 const db = require('./utils/db');
 const { getCooldown, setCooldown } = require('./utils/cooldown');
-
-// 文字指令開關設定 - 以物件方式存儲以便跨模組修改
-const textCommandsConfig = { enabled: true };
+const config = require('./utils/config');
 
 // 創建虛擬 interaction 物件，用於將文字指令轉換為斜線指令
 function createMockInteraction(message, commandName) {
@@ -117,7 +115,7 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('~')) return;
     
     // 檢查文字指令是否啟用
-    if (!textCommandsConfig.enabled) {
+    if (!config.textCommandsEnabled) {
         return message.reply('❌ 文字指令目前已被停用。請使用斜線指令。').catch(() => {});
     }
     
@@ -163,5 +161,5 @@ client.on('ready', () => {
 
 client.login(process.env.TOKEN);
 
-// 導出文字指令開關設定，讓 admin 指令可以修改
-module.exports.textCommandsConfig = textCommandsConfig;
+// 導出指令相關物件（如果需要）
+module.exports = { client, config };

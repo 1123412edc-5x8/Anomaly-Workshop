@@ -222,9 +222,9 @@ module.exports = {
 
         } else if (subcommand === 'toggletext') {
             // 切換文字指令開關
-            const indexModule = require('../index');
-            const newState = !indexModule.textCommandsConfig.enabled;
-            indexModule.textCommandsConfig.enabled = newState;
+            const config = require('../utils/config');
+            const newState = !config.textCommandsEnabled;
+            config.textCommandsEnabled = newState;
 
             const embed = new EmbedBuilder()
                 .setTitle('🔄 文字指令開關已切換')
