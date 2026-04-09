@@ -14,8 +14,50 @@ const client = new Client({
 const db = require('./utils/db');
 const { getCooldown, setCooldown } = require('./utils/cooldown');
 
-// 文字指令開關設定
-let textCommandsEnabled = true; // 預設啟用
+// 文字指令開關設定 - 以物件方式存儲以便跨模組修改
+const textCommandsConfig = { enabled: true };
+
+// 創建虛擬 interaction 物件，用於將文字指令轉換為斜線指令
+function createMockInteraction(message, commandName) {
+    return {
+        user: message.author,
+        guild: message.guild,
+        channel: message.channel,
+        member: message.member,
+        commandName: commandName,
+        // 模擬 interaction.reply 為 message.reply
+        reply: async (options) => {
+            return message.reply(options);
+        },
+        // 模擬 interaction.update 為 message.reply
+        update: async (options) => {
+            return message.reply(options);
+        },
+        // 模擬 interaction.followUp 為 message.reply
+        followUp: async (options) => {
+            return message.reply(options);
+        },
+        // 模擬 interaction.deferReply
+        deferReply: async () => {
+            // 文字指令沒有延遲，直接返回
+            return { defer: true };
+        },
+        // 模擬 interaction.isStringSelectMenu
+        isStringSelectMenu: () => false,
+        // 模擬 interaction.isChatInputCommand
+        isChatInputCommand: () => true,
+        replied: false,
+        deferred: false,
+        // 模擬 interaction.options 為空，因為文字指令沒有選項
+        options: {
+            getString: () => null,
+            getUser: () => null,
+            getNumber: () => null,
+            getBoolean: () => null,
+            getSubcommand: () => null
+        }
+    };
+}
 
 client.commands = new Collection();
 
@@ -39,6 +81,16 @@ if (fs.existsSync(commandsPath)) {
             // 註冊斜線指令 (如果有 data 屬性)
             if (command.data && command.data.name) {
                 registerCommandKey(command.data.name, command);
+            }
+            
+            // 註冊文字指令名稱 (如果有 name 屬性，支持舊格式)
+            if (command.name) {
+                registerCommandKey(command.name, command);
+            }
+            
+            // 註冊別名 (如果有 aliases 屬性)
+            if (command.aliases && Array.isArray(command.aliases)) {
+                command.aliases.forEach(alias => registerCommandKey(alias, command));
             }
             
             console.log(`✅ 成功載入指令: ${file}`);
@@ -65,7 +117,7 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('~')) return;
     
     // 檢查文字指令是否啟用
-    if (!textCommandsEnabled) {
+    if (!textCommandsConfig.enabled) {
         return message.reply('❌ 文字指令目前已被停用。請使用斜線指令。').catch(() => {});
     }
     
@@ -75,7 +127,7 @@ client.on('messageCreate', async (message) => {
 
     if (command && typeof command.execute === 'function') {
         try {
-            const cooldownKey = command.name || commandName;
+            const cooldownKey = command.data?.name || command.name || commandName;
             const cooldownRemaining = getCooldown(message.author.id, cooldownKey);
 
             if (cooldownRemaining > 0) {
@@ -87,8 +139,16 @@ client.on('messageCreate', async (message) => {
                 return message.reply({ embeds: [embed] });
             }
 
-            // 執行文字指令邏輯
-            await command.execute(message, args);
+            // 如果是斜線指令格式（有 data），創建虛擬 interaction 觀對象
+            if (command.data && !command.name) {
+                // 創建虛擬 interaction 物件以相容於斜線指令
+                const mockInteraction = createMockInteraction(message, command.data.name);
+                await command.execute(mockInteraction);
+            } else if (command.name) {
+                // 舊式文字指令
+                await command.execute(message, args);
+            }
+            
             setCooldown(message.author.id, cooldownKey);
         } catch (error) {
             console.error(error);
@@ -103,5 +163,5 @@ client.on('ready', () => {
 
 client.login(process.env.TOKEN);
 
-// 導出文字指令開關變數，讓 admin 指令可以修改
-module.exports.textCommandsEnabled = textCommandsEnabled;
+// 導出文字指令開關設定，讓 admin 指令可以修改
+module.exports.textCommandsConfig = textCommandsConfig;
