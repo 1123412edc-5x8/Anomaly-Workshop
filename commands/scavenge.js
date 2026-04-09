@@ -35,9 +35,13 @@ module.exports = {
             }
         });
 
-        // 從對應地圖的 50 種物品中抽一個
+        // 從對應地圖的 50 種物品中抽一個，或從 decomposable 中
         const region = itemWiki[loc];
-        const randomItemName = region.items[Math.floor(Math.random() * region.items.length)];
+        let itemPool = region.items;
+        if (region.decomposable && Math.random() < 0.1) { // 10% 機率獲得可分解物品
+            itemPool = region.decomposable;
+        }
+        const randomItemName = itemPool[Math.floor(Math.random() * itemPool.length)];
 
         // 決定稀有度
         let rarity = 'common';
