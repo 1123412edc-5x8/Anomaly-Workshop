@@ -1,25 +1,12 @@
-const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const db = require('../utils/db');
 const items = require('../utils/items');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('combine')
-        .setDescription('合成物品')
-        .addIntegerOption(option =>
-            option.setName('index1')
-                .setDescription('第一個物品編號')
-                .setRequired(true)
-        )
-        .addIntegerOption(option =>
-            option.setName('index2')
-                .setDescription('第二個物品編號')
-                .setRequired(true)
-        ),
+        .setDescription('合成物品'),
     execute: async (interaction) => {
-        const idx1 = interaction.options.getInteger('index1');
-        const idx2 = interaction.options.getInteger('index2');
-
         const userId = interaction.user.id;
         let data = db.read();
         const player = data.players?.[userId];
@@ -28,43 +15,52 @@ module.exports = {
             return interaction.reply({ content: '❌ 背包物品不足 2 個，無法合成。', ephemeral: true });
         }
 
-        if (idx1 === idx2 || idx1 < 0 || idx1 >= player.inventory.length || idx2 < 0 || idx2 >= player.inventory.length) {
-            return interaction.reply({ content: '❌ 序號無效、重複或超出了背包範圍！', ephemeral: true });
+        // 找出可能的合成配方
+        const possibleRecipes = [];
+        const inventoryNames = player.inventory.map(item => item.name);
+
+        for (const [recipeKey, result] of Object.entries(items.recipes)) {
+            const [item1, item2] = recipeKey.split('+');
+            const count1 = inventoryNames.filter(name => name === item1).length;
+            const count2 = inventoryNames.filter(name => name === item2).length;
+
+            if (count1 > 0 && count2 > 0) {
+                // 檢查是否是同一個物品（如果是，需要至少2個）
+                const maxCombines = (item1 === item2) ? Math.floor(count1 / 2) : Math.min(count1, count2);
+                if (maxCombines > 0) {
+                    possibleRecipes.push({
+                        key: recipeKey,
+                        result: result,
+                        maxCombines: maxCombines
+                    });
+                }
+            }
         }
 
-        const item1 = player.inventory[idx1];
-        const item2 = player.inventory[idx2];
-
-        // 檢查合成表
-        const recipeKey = `${item1.name}+${item2.name}`;
-        const reverseKey = `${item2.name}+${item1.name}`;
-        const result = items.recipes[recipeKey] || items.recipes[reverseKey];
-
-        if (!result) {
-            return interaction.reply({ content: '❌ 這兩個物品無法合成。請檢查合成表。', ephemeral: true });
+        if (possibleRecipes.length === 0) {
+            return interaction.reply({ content: '❌ 沒有可用的合成配方。請檢查背包物品和合成表。', ephemeral: true });
         }
 
-        // 移除物品（先移除較大的索引）
-        const indices = [idx1, idx2].sort((a, b) => b - a);
-        indices.forEach(idx => player.inventory.splice(idx, 1));
+        // 創建選擇菜單
+        const options = possibleRecipes.map((recipe, index) => {
+            return new StringSelectMenuOptionBuilder()
+                .setLabel(`${recipe.key} → ${recipe.result}`)
+                .setDescription(`最多可合成 ${recipe.maxCombines} 次`)
+                .setValue(`combine_${index}`);
+        });
 
-        // 添加合成結果
-        const newItem = {
-            name: result,
-            origin: item1.origin || '合成',
-            rarity: 'rare'
-        };
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('combine_select')
+            .setPlaceholder('選擇要合成的配方')
+            .addOptions(options.slice(0, 25)); // Discord 限制最多 25 個選項
 
-        player.inventory.push(newItem);
-        player.weekly_points = (player.weekly_points || 0) + 50;
+        const row = new ActionRowBuilder().addComponents(selectMenu);
 
-        db.write(data);
-
-        const res = new EmbedBuilder()
-            .setTitle('🌀 合成成功！')
-            .setDescription(`**${item1.name}** + **${item2.name}** 已合成為 **${newItem.name}**`)
+        const embed = new EmbedBuilder()
+            .setTitle('🌀 合成物品')
+            .setDescription('請選擇要合成的配方：')
             .setColor(0x00FFFF);
 
-        interaction.reply({ embeds: [res] });
+        await interaction.reply({ embeds: [embed], components: [row] });
     }
 };
