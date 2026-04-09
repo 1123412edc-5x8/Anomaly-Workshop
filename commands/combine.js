@@ -45,7 +45,7 @@ module.exports = {
         const options = possibleRecipes.map((recipe, index) => {
             return new StringSelectMenuOptionBuilder()
                 .setLabel(`${recipe.key} → ${recipe.result}`)
-                .setDescription(`最多可合成 ${recipe.maxCombines} 次`)
+                .setDescription(`可合成 ${recipe.maxCombines} 次`)
                 .setValue(`combine_${index}`);
         });
 
@@ -58,7 +58,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🌀 合成物品')
-            .setDescription('請選擇要合成的配方：')
+            .setDescription('請選擇要合成的配方：\n• 顯示可合成次數\n• 選擇後可調整合成數量')
             .setColor(0x00FFFF);
 
         await interaction.reply({ embeds: [embed], components: [row] });

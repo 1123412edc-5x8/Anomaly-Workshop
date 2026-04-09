@@ -15,12 +15,29 @@ module.exports = {
             return interaction.reply({ content: '❌ 背包沒有物品，無法分解。', ephemeral: true });
         }
 
-        // 創建選擇菜單
-        const options = player.inventory.map((item, index) => {
-            return new StringSelectMenuOptionBuilder()
-                .setLabel(`${index}: ${item.name}`)
+        // 創建選擇菜單，顯示物品數量
+        const itemCounts = {};
+        player.inventory.forEach(item => {
+            itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
+        });
+
+        const options = [];
+        player.inventory.forEach((item, index) => {
+            const count = itemCounts[item.name];
+            options.push(new StringSelectMenuOptionBuilder()
+                .setLabel(`${index}: ${item.name} (${count}個)`)
                 .setDescription(`稀有度: ${item.rarity || 'common'}`)
-                .setValue(`decompose_${index}`);
+                .setValue(`decompose_single_${index}`));
+        });
+
+        // 添加全選選項（對於數量 > 1 的物品）
+        Object.entries(itemCounts).forEach(([itemName, count]) => {
+            if (count > 1) {
+                options.push(new StringSelectMenuOptionBuilder()
+                    .setLabel(`全選: ${itemName} (${count}個)`)
+                    .setDescription(`分解所有 ${count} 個 ${itemName}`)
+                    .setValue(`decompose_all_${itemName}`));
+            }
         });
 
         if (options.length === 0) {
@@ -36,7 +53,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🔨 分解物品')
-            .setDescription('請選擇要分解的物品：')
+            .setDescription('請選擇要分解的物品：\n• 單個分解：選擇特定編號的物品\n• 全選分解：分解所有相同物品')
             .setColor(0xFFA500);
 
         await interaction.reply({ embeds: [embed], components: [row] });
