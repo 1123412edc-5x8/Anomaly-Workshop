@@ -11,19 +11,12 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('bag')
         .setDescription('查看背包'),
-    name: 'bag',
-    aliases: ['b', '背包'],
-    execute: async (interactionOrMessage) => {
+    execute: async (interaction) => {
         const data = db.read();
-        const userId = interactionOrMessage.author?.id || interactionOrMessage.user.id;
+        const userId = interaction.user.id;
         const player = data.players[userId];
         if (!player || !player.inventory?.length) {
-            const reply = '🎒 背包空空如也。';
-            if (interactionOrMessage.reply) {
-                return interactionOrMessage.reply(reply);
-            } else {
-                return interactionOrMessage.reply({ content: reply, ephemeral: true });
-            }
+            return interaction.reply({ content: '🎒 背包空空如也。', ephemeral: true });
         }
 
         const counts = {};
@@ -43,12 +36,6 @@ module.exports = {
             if (items.length) embed.addFields({ name: cat, value: items.join('\n'), inline: true });
         }
 
-        if (interactionOrMessage.reply) {
-            // Message
-            interactionOrMessage.reply({ embeds: [embed] });
-        } else {
-            // Interaction
-            interactionOrMessage.reply({ embeds: [embed] });
-        }
+        interaction.reply({ embeds: [embed] });
     }
 };

@@ -1,12 +1,13 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, SlashCommandBuilder } = require('discord.js');
 const db = require('../utils/db');
 const { getActiveEvents } = require('./event');
 
 module.exports = {
-    name: 'battle',
-    aliases: ['fight', 'battle', '戰鬥'],
-    execute: async (message) => {
-        const userId = message.author.id;
+    data: new SlashCommandBuilder()
+        .setName('battle')
+        .setDescription('開始戰鬥'),
+    execute: async (interaction) => {
+        const userId = interaction.user.id;
         let data = db.read();
 
         // 初始化玩家數據
@@ -14,9 +15,9 @@ module.exports = {
         if (!data.players[userId]) {
             const embed = new EmbedBuilder()
                 .setTitle('❌ 無法開始戰鬥')
-                .setDescription('🎒 請先使用 `~s` 拾荒獲得零件！')
+                .setDescription('🎒 請先使用 `/scavenge` 拾荒獲得零件！')
                 .setColor(0xFF0000);
-            return message.reply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         }
 
         const player = data.players[userId];

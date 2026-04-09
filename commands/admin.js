@@ -1,45 +1,61 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const db = require('../utils/db');
 
 // 管理員 ID 列表 (可根據需要修改)
 const ADMINS = ['1292424394957918248'];
 
 module.exports = {
-    name: 'admin',
-    aliases: ['admin', '管理員'],
-    execute: async (message, args = []) => {
+    data: new SlashCommandBuilder()
+        .setName('admin')
+        .setDescription('管理員指令')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('stats')
+                .setDescription('查看玩家資料')
+                .addUserOption(option => option.setName('user').setDescription('目標玩家').setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('server')
+                .setDescription('查看伺服器統計'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('save')
+                .setDescription('手動保存資料'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('reset')
+                .setDescription('重置玩家資料')
+                .addUserOption(option => option.setName('user').setDescription('目標玩家').setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('cooldown')
+                .setDescription('查看玩家冷卻時間')
+                .addUserOption(option => option.setName('user').setDescription('目標玩家').setRequired(true))
+                .addStringOption(option => option.setName('command').setDescription('指令名稱').setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('clearcooldown')
+                .setDescription('清除玩家冷卻時間')
+                .addUserOption(option => option.setName('user').setDescription('目標玩家').setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('toggletext')
+                .setDescription('切換文字指令開關')),
+    execute: async (interaction) => {
         // 檢查管理員權限
-        if (!ADMINS.includes(message.author.id) && !message.member?.permissions.has('ADMINISTRATOR')) {
+        if (!ADMINS.includes(interaction.user.id) && !interaction.member?.permissions.has('ADMINISTRATOR')) {
             const embed = new EmbedBuilder()
                 .setTitle('❌ 權限不足')
                 .setDescription('你沒有管理員權限！')
                 .setColor(0xFF0000);
-            return message.reply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
-        const subcommand = args[0];
-
-        if (!subcommand) {
-            // 顯示管理員菜單
-            const embed = new EmbedBuilder()
-                .setTitle('⚙️ 管理員控制面板')
-                .setColor(0xFF0000)
-                .addFields(
-                    { name: '👥 查看玩家資料', value: '`~admin stats [@玩家]` - 查看特定玩家的詳細信息' },
-                    { name: '📊 全服統計', value: '`~admin server` - 查看伺服器總玩家數和統計' },
-                    { name: '💾 手動保存', value: '`~admin save` - 強制保存所有玩家資料' },
-                    { name: '🔄 重置玩家', value: '`~admin reset [@玩家]` - 重置玩家所有資料 (慎用)' },
-                    { name: '⏰ 查看冷卻時間', value: '`~admin cooldown [@玩家] [指令]` - 查看玩家的冷卻時間' },
-                    { name: '🧹 清理冷卻時間', value: '`~admin clearcooldown [@玩家]` - 清除玩家所有冷卻時間' }
-                )
-                .setFooter({ text: '僅限管理員使用' });
-
-            return message.reply({ embeds: [embed] });
-        }
+        const subcommand = interaction.options.getSubcommand();
 
         if (subcommand === 'stats') {
             // 查看玩家資料
-            const targetUser = message.mentions.users.first() || message.author;
+            const targetUser = interaction.options.getUser('user') || interaction.user;
             const data = db.read();
 
             if (!data.players[targetUser.id]) {
@@ -47,7 +63,7 @@ module.exports = {
                     .setTitle('❌ 玩家未找到')
                     .setDescription('該玩家還沒開始遊戲。')
                     .setColor(0xFF0000);
-                return message.reply({ embeds: [embed] });
+                return interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             const player = data.players[targetUser.id];
@@ -69,7 +85,7 @@ module.exports = {
                 )
                 .setFooter({ text: '完整玩家資料' });
 
-            message.reply({ embeds: [embed] });
+            interaction.reply({ embeds: [embed], ephemeral: true });
 
         } else if (subcommand === 'server') {
             // 全服統計
@@ -93,7 +109,7 @@ module.exports = {
                     { name: '📅 最後保存時間', value: `\`${new Date().toLocaleString('zh-TW')}\`` }
                 );
 
-            message.reply({ embeds: [embed] });
+            interaction.reply({ embeds: [embed], ephemeral: true });
 
         } else if (subcommand === 'save') {
             // 手動保存
@@ -111,19 +127,11 @@ module.exports = {
                 .setColor(0x00FF00)
                 .setDescription(`成功保存 ${Object.keys(data.players || {}).length} 個玩家的資料。`);
 
-            message.reply({ embeds: [embed] });
+            interaction.reply({ embeds: [embed], ephemeral: true });
 
         } else if (subcommand === 'reset') {
             // 重置玩家
-            const targetUser = message.mentions.users.first();
-
-            if (!targetUser) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ 請指定玩家')
-                    .setDescription('請指定要重置的玩家！使用 `~admin reset [@玩家]`')
-                    .setColor(0xFF0000);
-                return message.reply({ embeds: [embed] });
-            }
+            const targetUser = interaction.options.getUser('user');
 
             const data = db.read();
             data.players[targetUser.id] = {
@@ -143,20 +151,12 @@ module.exports = {
                 .setColor(0xFF8800)
                 .setDescription(`已重置 **${targetUser.username}** 的所有資料。`);
 
-            message.reply({ embeds: [embed] });
+            interaction.reply({ embeds: [embed], ephemeral: true });
 
         } else if (subcommand === 'cooldown') {
             // 查看冷卻時間
-            const targetUser = message.mentions.users.first();
-            const commandName = args[2];
-
-            if (!targetUser) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ 請指定玩家')
-                    .setDescription('請指定玩家！使用 `~admin cooldown [@玩家] [指令]`')
-                    .setColor(0xFF0000);
-                return message.reply({ embeds: [embed] });
-            }
+            const targetUser = interaction.options.getUser('user');
+            const commandName = interaction.options.getString('command');
 
             const data = db.read();
             const cooldowns = data.cooldowns || {};
@@ -181,7 +181,7 @@ module.exports = {
                     });
                 }
 
-                message.reply({ embeds: [embed] });
+                interaction.reply({ embeds: [embed], ephemeral: true });
             } else {
                 // 查看特定指令的冷卻時間
                 const endTime = userCooldowns[commandName];
@@ -191,7 +191,7 @@ module.exports = {
                         .setTitle('✅ 冷卻檢查')
                         .setDescription(`${targetUser.username} 可以使用 \`${commandName}\` 指令。`)
                         .setColor(0x00FF00);
-                    return message.reply({ embeds: [embed] });
+                    return interaction.reply({ embeds: [embed], ephemeral: true });
                 }
 
                 const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
@@ -200,20 +200,12 @@ module.exports = {
                     .setColor(0xFF0000)
                     .setDescription(`**${targetUser.username}** 的 \`${commandName}\` 冷卻時間剩餘：\`${remaining}\` 秒`);
 
-                message.reply({ embeds: [embed] });
+                interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
         } else if (subcommand === 'clearcooldown') {
             // 清除冷卻時間
-            const targetUser = message.mentions.users.first();
-
-            if (!targetUser) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ 請指定玩家')
-                    .setDescription('請指定玩家！使用 `~admin clearcooldown [@玩家]`')
-                    .setColor(0xFF0000);
-                return message.reply({ embeds: [embed] });
-            }
+            const targetUser = interaction.options.getUser('user');
 
             const data = db.read();
             if (data.cooldowns && data.cooldowns[targetUser.id]) {
@@ -226,13 +218,20 @@ module.exports = {
                 .setColor(0x00FF00)
                 .setDescription(`已清除 **${targetUser.username}** 的所有冷卻時間。`);
 
-            message.reply({ embeds: [embed] });
-        } else {
+            interaction.reply({ embeds: [embed], ephemeral: true });
+
+        } else if (subcommand === 'toggletext') {
+            // 切換文字指令開關
+            const indexModule = require('../index');
+            const newState = !indexModule.textCommandsEnabled;
+            indexModule.textCommandsEnabled = newState;
+
             const embed = new EmbedBuilder()
-                .setTitle('❌ 無效的子命令')
-                .setDescription('無效的子命令。使用 `~admin` 查看幫助。')
-                .setColor(0xFF0000);
-            message.reply({ embeds: [embed] });
+                .setTitle('🔄 文字指令開關已切換')
+                .setColor(newState ? 0x00FF00 : 0xFF0000)
+                .setDescription(`文字指令現在${newState ? '已啟用' : '已停用'}。\n\n${newState ? '玩家可以使用 `~` 前綴指令' : '玩家只能使用斜線指令'}`);
+
+            interaction.reply({ embeds: [embed], ephemeral: true });
         }
     }
 };

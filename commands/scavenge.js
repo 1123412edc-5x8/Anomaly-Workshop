@@ -1,13 +1,14 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const db = require('../utils/db');
 const itemWiki = require('../utils/items');
 const { getActiveEvents } = require('./event');
 
 module.exports = {
-    name: 'scavenge',
-    aliases: ['s', '拾荒'],
-    execute: async (message) => {
-        const userId = message.author.id;
+    data: new SlashCommandBuilder()
+        .setName('scavenge')
+        .setDescription('拾荒零件'),
+    execute: async (interaction) => {
+        const userId = interaction.user.id;
         let data = db.read();
 
         // 初始化玩家數據
@@ -86,8 +87,8 @@ module.exports = {
                 { name: '📊 積分', value: `+${points} 分`, inline: true }
             )
             .setColor(region.color)
-            .setFooter({ text: `輸入 ~map 切換地區 | 檢查 ~event 查看當前加成！` });
+            .setFooter({ text: `使用 /map 切換地區 | 檢查 /event 查看當前加成！` });
 
-        message.reply({ embeds: [embed] });
+        interaction.reply({ embeds: [embed] });
     }
 };
