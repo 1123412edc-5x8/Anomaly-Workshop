@@ -2,6 +2,32 @@ module.exports = {
     name: 'interactionCreate',
     async execute(interaction) {
         // 處理斜線指令
+
+
+
+
+        if (interaction.isAutocomplete()) {
+                        const command = interaction.client.commands.get(interaction.commandName);
+                                    if (!command) return;
+                                                try {
+                                                                await command.autocomplete(interaction);
+                                                                            } catch (error) {
+                                                                                            console.error(error);
+                                                                                                        }
+                                                                                                                    return;
+                                                                                                                            }
+
+                                                                                                                                    // --- 2. 處理斜線指令 ---
+                                                                                                                                            if (interaction.isChatInputCommand()) {
+                                                                                                                                                        const command = interaction.client.commands.get(interaction.commandName);
+                                                                                                                                                                    if (!command) return;
+                                                                                                                                                                                try {
+                                                                                                                                                                                                await command.execute(interaction);
+                                                                                                                                                                                                            } catch (error) {
+                                                                                                                                                                                                                            console.error(error);
+                                                                                                                                                                                                                                            await interaction.reply({ content: '❌ 執行斜線指令時出錯', ephemeral: true });
+                                                                                                                                                                                                                                                        }
+        }
         if (interaction.isChatInputCommand()) {
             const command = interaction.client.commands.get(interaction.commandName);
 
