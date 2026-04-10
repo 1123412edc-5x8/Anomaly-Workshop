@@ -1,61 +1,118 @@
-const { EmbedBuilder, SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
-const items = require('../utils/items');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('decompose')
-        .setDescription('分解物品'),
-    execute: async (interaction) => {
+        .setDescription('分解特定基礎材料（高級物品不會出現在選單中）')
+        .addStringOption(option => 
+            option.setName('item')
+                .setDescription('選擇要分解的材料')
+                .setRequired(true)
+                .setAutocomplete(true))
+        .addStringOption(option =>
+            option.setName('amount')
+                .setDescription('分解數量')
+                .setRequired(true)
+                .addChoices(
+                    { name: '單個分解', value: 'single' },
+                    { name: '全部分解', value: 'all' }
+                )),
+
+    // --- 自動選單：只顯示「背包有」且「可分解」的特定物品 ---
+    async autocomplete(interaction) {
+        const focusedValue = interaction.options.getFocused();
         const userId = interaction.user.id;
-        let data = db.read();
+        const data = db.read();
         const player = data.players?.[userId];
 
-        if (!player || !player.inventory || player.inventory.length < 1) {
-            return interaction.reply({ content: '❌ 背包沒有物品，無法分解。', ephemeral: true });
-        }
+        if (!player || !player.inventory) return await interaction.respond([]);
 
-        // 創建選擇菜單，顯示物品數量
+        // 讀取特定名單
+        const rulePath = path.join(__dirname, '../data/deconstruct.json');
+        if (!fs.existsSync(rulePath)) return await interaction.respond([]);
+        const rules = JSON.parse(fs.readFileSync(rulePath, 'utf8'));
+        const allowedItems = Object.keys(rules);
+
+        // 統計背包中符合名單的數量
         const itemCounts = {};
         player.inventory.forEach(item => {
-            itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
-        });
-
-        const options = [];
-        player.inventory.forEach((item, index) => {
-            const count = itemCounts[item.name];
-            options.push(new StringSelectMenuOptionBuilder()
-                .setLabel(`${index}: ${item.name} (${count}個)`)
-                .setDescription(`稀有度: ${item.rarity || 'common'}`)
-                .setValue(`decompose_single_${index}`));
-        });
-
-        // 添加全選選項（對於數量 > 1 的物品）
-        Object.entries(itemCounts).forEach(([itemName, count]) => {
-            if (count > 1) {
-                options.push(new StringSelectMenuOptionBuilder()
-                    .setLabel(`全選: ${itemName} (${count}個)`)
-                    .setDescription(`分解所有 ${count} 個 ${itemName}`)
-                    .setValue(`decompose_all_${itemName}`));
+            const name = typeof item === 'string' ? item : item.name;
+            if (allowedItems.includes(name)) {
+                itemCounts[name] = (itemCounts[name] || 0) + 1;
             }
         });
 
-        if (options.length === 0) {
-            return interaction.reply({ content: '❌ 背包沒有物品。', ephemeral: true });
-        }
+        const choices = Object.entries(itemCounts).map(([name, count]) => ({
+            name: `${name} (持有 x${count})`,
+            value: name 
+        }));
 
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('decompose_select')
-            .setPlaceholder('選擇要分解的物品')
-            .addOptions(options.slice(0, 25)); // Discord 限制最多 25 個選項
+        const filtered = choices.filter(c => c.name.includes(focusedValue)).slice(0, 25);
+        await interaction.respond(filtered);
+    },
 
-        const row = new ActionRowBuilder().addComponents(selectMenu);
+    // --- 執行動作：發放特定獎勵與積分 ---
+    async execute(interaction) {
+        const userId = interaction.user.id;
+        const itemName = interaction.options.getString('item');
+        const amountType = interaction.options.getString('amount');
+
+        const rulePath = path.join(__dirname, '../data/deconstruct.json');
+        const rules = JSON.parse(fs.readFileSync(rulePath, 'utf8'));
+        const rule = rules[itemName];
+
+        if (!rule) return interaction.reply({ content: '❌ 此物品不可分解。', ephemeral: true });
+
+        let data = db.read();
+        const player = data.players?.[userId];
+        
+        // 找出所有符合的物品索引
+        const indices = [];
+        player.inventory.forEach((item, index) => {
+            const name = typeof item === 'string' ? item : item.name;
+            if (name === itemName) indices.push(index);
+        });
+
+        if (indices.length === 0) return interaction.reply({ content: '❌ 背包裡找不到該物品。', ephemeral: true });
+
+        const count = amountType === 'all' ? indices.length : 1;
+        const targets = indices.slice(0, count).sort((a, b) => b - a);
+
+        let totalCrystals = 0;
+        let totalPoints = 0;
+        let allGainedItems = [];
+
+        targets.forEach(idx => {
+            player.inventory.splice(idx, 1); // 移除
+            totalCrystals += (rule.crystals || 0);
+            totalPoints += 10; // 每個給 10 積分
+            
+            // 給予特定產出物
+            if (rule.fixed_yield) {
+                rule.fixed_yield.forEach(y => {
+                    player.inventory.push(y);
+                    allGainedItems.push(y);
+                });
+            }
+        });
+
+        player.entropy_crystal = (player.entropy_crystal || 0) + totalCrystals;
+        player.weekly_points = (player.weekly_points || 0) + totalPoints;
+        db.write(data);
 
         const embed = new EmbedBuilder()
-            .setTitle('🔨 分解物品')
-            .setDescription('請選擇要分解的物品：\n• 單個分解：選擇特定編號的物品\n• 全選分解：分解所有相同物品')
-            .setColor(0xFFA500);
+            .setTitle('🔧 特定材料分解成功')
+            .setColor(0x2ecc71)
+            .setDescription(`你將 **${count}** 個 **${itemName}** 投入分解機。`)
+            .addFields(
+                { name: '💎 獲得結晶', value: `+${totalCrystals}`, inline: true },
+                { name: '📈 每週積分', value: `+${totalPoints}`, inline: true },
+                { name: '📦 回收產物', value: allGainedItems.length > 0 ? [...new Set(allGainedItems)].join('、') : '無' }
+            );
 
-        await interaction.reply({ embeds: [embed], components: [row] });
+        await interaction.reply({ embeds: [embed] });
     }
 };
