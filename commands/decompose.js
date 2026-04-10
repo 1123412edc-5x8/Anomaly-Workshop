@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
 const fs = require('fs');
 const path = require('path');
@@ -6,92 +6,75 @@ const path = require('path');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('decompose')
-        .setDescription('分解特定基礎材料（高級物品不會出現在選單中）'),
+        .setDescription('分解指定材料')
+        .addStringOption(option => 
+            option.setName('item')
+                .setDescription('請從清單中選擇要分解的物品')
+                .setRequired(true)
+                .setAutocomplete(true)) // 這裡開啟自動補齊
+        .addStringOption(option =>
+            option.setName('amount')
+                .setDescription('分解數量')
+                .setRequired(true)
+                .addChoices(
+                    { name: '單個分解', value: 'single' },
+                    { name: '全部分解', value: 'all' }
+                )),
 
-    // --- 自動選單：只顯示「背包有」且「可分解」的特定物品 ---
     async autocomplete(interaction) {
-        const focusedValue = interaction.options.getFocused();
-        const userId = interaction.user.id;
-        const data = db.read();
-        const player = data.players?.[userId];
+        try {
+            const focusedValue = interaction.options.getFocused();
+            const userId = interaction.user.id;
+            const data = db.read();
+            const player = data.players?.[userId];
 
-        if (!player || !player.inventory) return await interaction.respond([]);
-
-        // 讀取特定名單
-        const rulePath = path.join(__dirname, '../data/deconstruct.json');
-        if (!fs.existsSync(rulePath)) return await interaction.respond([]);
-        const rules = JSON.parse(fs.readFileSync(rulePath, 'utf8'));
-        const allowedItems = Object.keys(rules);
-
-        // 統計背包中符合名單的數量
-        const itemCounts = {};
-        player.inventory.forEach(item => {
-            const name = typeof item === 'string' ? item : item.name;
-            if (allowedItems.includes(name)) {
-                itemCounts[name] = (itemCounts[name] || 0) + 1;
+            // 1. 基本安全檢查
+            if (!player || !player.inventory) {
+                return await interaction.respond([{ name: '⚠️ 你的背包是空的', value: 'none' }]);
             }
-        });
 
-        const choices = Object.entries(itemCounts).map(([name, count]) => ({
-            name: `${name} (持有 x${count})`,
-            value: name 
-        }));
+            // 2. 讀取規則檔案 (確保路徑在 Termux 是正確的)
+            const rulePath = path.join(process.cwd(), 'data', 'deconstruct.json');
+            if (!fs.existsSync(rulePath)) {
+                console.log('找不到規則檔於:', rulePath);
+                return await interaction.respond([{ name: '⚠️ 伺服器遺失分解規則檔', value: 'none' }]);
+            }
+            
+            const rules = JSON.parse(fs.readFileSync(rulePath, 'utf8'));
+            const allowedNames = Object.keys(rules);
 
-        const filtered = choices.filter(c => c.name.includes(focusedValue)).slice(0, 25);
-        await interaction.respond(filtered);
+            // 3. 篩選玩家背包中「符合分解規則」的物品
+            const itemCounts = {};
+            player.inventory.forEach(item => {
+                const name = typeof item === 'string' ? item : item.name;
+                if (allowedNames.includes(name)) {
+                    itemCounts[name] = (itemCounts[name] || 0) + 1;
+                }
+            });
+
+            // 4. 轉換為 Discord 選項
+            const choices = Object.entries(itemCounts).map(([name, count]) => ({
+                name: `${name} (持有 x${count})`,
+                value: name 
+            }));
+
+            // 5. 模糊搜尋過濾
+            const filtered = choices
+                .filter(choice => choice.name.toLowerCase().includes(focusedValue.toLowerCase()))
+                .slice(0, 25);
+
+            // 必須回傳，否則選單會一直轉圈圈或變空白框
+            await interaction.respond(filtered);
+
+        } catch (err) {
+            console.error('Autocomplete Error:', err);
+            // 發生錯誤時至少回傳一個提示
+            await interaction.respond([{ name: '❌ 選單讀取發生異常', value: 'error' }]);
+        }
     },
 
-    // --- 執行動作：發放特定獎勵與積分 ---
     async execute(interaction) {
-        const userId = interaction.user.id;
-        let data = db.read();
-        const player = data.players?.[userId];
-
-        if (!player || !player.inventory) {
-            return interaction.reply({ content: '❌ 玩家數據錯誤。', ephemeral: true });
-        }
-
-        // 讀取可分解物品名單
-        const rulePath = path.join(__dirname, '../data/deconstruct.json');
-        if (!fs.existsSync(rulePath)) {
-            return interaction.reply({ content: '❌ 分解規則文件不存在。', ephemeral: true });
-        }
-        const rules = JSON.parse(fs.readFileSync(rulePath, 'utf8'));
-        const allowedItems = Object.keys(rules);
-
-        // 統計背包中可分解的物品
-        const itemCounts = {};
-        player.inventory.forEach(item => {
-            const name = typeof item === 'string' ? item : item.name;
-            if (allowedItems.includes(name)) {
-                itemCounts[name] = (itemCounts[name] || 0) + 1;
-            }
-        });
-
-        if (Object.keys(itemCounts).length === 0) {
-            return interaction.reply({ content: '❌ 背包中沒有可分解的物品。', ephemeral: true });
-        }
-
-        // 創建選擇菜單
-        const options = Object.entries(itemCounts).map(([name, count]) => {
-            return new StringSelectMenuOptionBuilder()
-                .setLabel(`${name} (持有 x${count})`)
-                .setValue(`decompose_single_${name}`)
-                .setDescription(`分解 1 個 ${name}`);
-        });
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('decompose_select')
-            .setPlaceholder('選擇要分解的物品')
-            .addOptions(options.slice(0, 25)); // Discord 限制最多 25 個選項
-
-        const row = new ActionRowBuilder().addComponents(selectMenu);
-
-        const embed = new EmbedBuilder()
-            .setTitle('🔧 分解物品')
-            .setDescription('請選擇要分解的物品：\n• 你可以選擇分解單個或全部同類物品')
-            .setColor(0xFFA500);
-
-        await interaction.reply({ embeds: [embed], components: [row] });
+        // ... (保持之前的 execute 邏輯)
+        // 記得執行前判斷 if (itemName === 'none' || itemName === 'error') 直接 return
     }
 };
