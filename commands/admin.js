@@ -223,7 +223,10 @@ module.exports = {
         } else if (subcommand === 'toggletext') {
             // 切換文字指令開關
             const config = require('../utils/config');
-            const newState = !config.textCommandsEnabled;
+            const currentState = config.textCommandsEnabled;
+            const newState = !currentState;
+            
+            // 通過 setter 保存到數據庫
             config.textCommandsEnabled = newState;
 
             const embed = new EmbedBuilder()

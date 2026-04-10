@@ -59,6 +59,10 @@ module.exports = {
                 const decomposeHandler = require('../interactions/decomposeHandler');
                 await decomposeHandler.execute(interaction);
             }
+            else if (customId === 'decompose_amount_select') {
+                const decomposeHandler = require('../interactions/decomposeHandler');
+                await decomposeHandler.executeAmountSelect(interaction);
+            }
             else if (customId === 'combine_select') {
                 const combineHandler = require('../interactions/combineHandler');
                 await combineHandler.executeCombineSelect(interaction);
