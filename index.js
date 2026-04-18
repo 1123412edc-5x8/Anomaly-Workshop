@@ -20,13 +20,12 @@ function createMockInteraction(message, commandName, command, args) {
     // 解析 SlashCommandBuilder 的 options 定義，從 args 中提取對應的值
     const parsedOptions = {};
     let subcommandName = null;
+    let argIndex = 0;
     
     if (command.data && command.data.options && Array.isArray(command.data.options)) {
-        let argIndex = 0;
-        
         // 檢查第一個 option 是否為 subcommand
         const firstOption = command.data.options[0];
-        if (firstOption && firstOption.type === 1) { // SUBCOMMAND
+        if (firstOption && firstOption.type === 1) { // SUBCOMMAND 類型
             // 如果有 args，第一個 arg 作為 subcommand 名稱
             if (argIndex < args.length) {
                 subcommandName = args[argIndex];
@@ -35,11 +34,11 @@ function createMockInteraction(message, commandName, command, args) {
             }
         }
         
-        command.data.options.forEach((option, optionIndex) => {
+        command.data.options.forEach((option) => {
             const optionName = option.name;
             const optionType = option.type;
             
-            // 跳過 subcommand 和 subcommand group
+            // 跳過 subcommand (1) 和 subcommand group (2)
             if (optionType === 1 || optionType === 2) return;
             
             if (argIndex < args.length) {
@@ -236,4 +235,5 @@ client.on('ready', () => {
 client.login(process.env.TOKEN);
 
 // 導出指令相關物件（如果需要）
+module.exports = { client, config };
 module.exports = { client, config };
