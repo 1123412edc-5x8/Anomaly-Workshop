@@ -118,6 +118,10 @@ function createBasicHelpEmbed() {
         .setColor(0x3498db)
         .addFields(
             {
+                name: '👤 /me',
+                value: '**個人狀態**\n查看結晶值、技能、裝備、公會等個人資訊\n**用法：** `/me`'
+            },
+            {
                 name: '🎒 /bag',
                 value: '**查看背包**\n顯示所有物品的耐久度和熵值狀態\n**用法：** `/bag`'
             },
