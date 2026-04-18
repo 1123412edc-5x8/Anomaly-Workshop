@@ -16,7 +16,43 @@ const { getCooldown, setCooldown } = require('./utils/cooldown');
 const config = require('./utils/config');
 
 // 創建虛擬 interaction 物件，用於將文字指令轉換為斜線指令
-function createMockInteraction(message, commandName) {
+function createMockInteraction(message, commandName, command, args) {
+    // 解析 SlashCommandBuilder 的 options 定義，從 args 中提取對應的值
+    const parsedOptions = {};
+    
+    if (command.data && command.data.options && Array.isArray(command.data.options)) {
+        let argIndex = 0;
+        command.data.options.forEach((option, optionIndex) => {
+            const optionName = option.name;
+            const optionType = option.type;
+            
+            if (argIndex < args.length) {
+                const rawValue = args[argIndex];
+                
+                // 根據選項類型轉換值
+                let convertedValue = rawValue;
+                if (optionType === 3) { // STRING
+                    convertedValue = rawValue;
+                } else if (optionType === 4) { // INTEGER
+                    convertedValue = parseInt(rawValue);
+                } else if (optionType === 10) { // NUMBER
+                    convertedValue = parseFloat(rawValue);
+                } else if (optionType === 5) { // BOOLEAN
+                    convertedValue = rawValue.toLowerCase() === 'true' || rawValue === '1' || rawValue === 'yes';
+                } else if (optionType === 6) { // USER
+                    const userId = rawValue.replace(/[<@!>]/g, '');
+                    convertedValue = message.guild?.members.cache.get(userId)?.user || null;
+                }
+                
+                parsedOptions[optionName] = convertedValue;
+                argIndex++;
+            } else if (option.required) {
+                // 如果必填但沒有提供，則設為 null（會被指令捕捉）
+                parsedOptions[optionName] = null;
+            }
+        });
+    }
+    
     return {
         user: message.author,
         guild: message.guild,
@@ -46,13 +82,29 @@ function createMockInteraction(message, commandName) {
         isChatInputCommand: () => true,
         replied: false,
         deferred: false,
-        // 模擬 interaction.options 為空，因為文字指令沒有選項
+        // 模擬 interaction.options，包含從文字指令解析的參數
         options: {
-            getString: () => null,
-            getUser: () => null,
-            getNumber: () => null,
-            getBoolean: () => null,
-            getSubcommand: () => null
+            getString: (name) => {
+                const value = parsedOptions[name];
+                return typeof value === 'string' ? value : null;
+            },
+            getUser: (name) => {
+                const value = parsedOptions[name];
+                return value && typeof value.id === 'string' ? value : null;
+            },
+            getNumber: (name) => {
+                const value = parsedOptions[name];
+                return typeof value === 'number' ? value : null;
+            },
+            getBoolean: (name) => {
+                const value = parsedOptions[name];
+                return typeof value === 'boolean' ? value : null;
+            },
+            getSubcommand: () => null,
+            getMember: (name) => {
+                const value = parsedOptions[name];
+                return value && typeof value.id === 'string' ? message.guild?.members.cache.get(value.id) : null;
+            }
         }
     };
 }
@@ -137,10 +189,10 @@ client.on('messageCreate', async (message) => {
                 return message.reply({ embeds: [embed] });
             }
 
-            // 如果是斜線指令格式（有 data），創建虛擬 interaction 觀對象
-            if (command.data && !command.name) {
-                // 創建虛擬 interaction 物件以相容於斜線指令
-                const mockInteraction = createMockInteraction(message, command.data.name);
+            // 如果是斜線指令格式（有 data），創建虛擬 interaction 物件
+            if (command.data) {
+                // 創建虛擬 interaction 物件以相容於斜線指令，並傳入命令定義和參數
+                const mockInteraction = createMockInteraction(message, command.data.name, command, args);
                 await command.execute(mockInteraction);
             } else if (command.name) {
                 // 舊式文字指令
