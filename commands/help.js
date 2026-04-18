@@ -18,101 +18,97 @@ module.exports = {
     async execute(interaction) {
         const page = interaction.options.getString('page') || 'main';
 
-        if (page === 'main') {
-            // 主頁面 - 指令總覽
-            const embed = new EmbedBuilder()
-                .setTitle('🛠️ 異常工坊：指令指南')
-                .setColor(0x00FFCC)
-                .setDescription('歡迎來到異常工坊！使用 `/help [頁面]` 查看詳細說明\n\n**🎮 全新RPG體驗！** 現在支援裝備、技能、寵物、公會等系統！')
-                .addFields(
-                    { name: '🎮 基本指令', value: '`/bag` - 查看背包\n`/map [地區]` - 移動地區\n`/scavenge` - 拾荒零件\n`/decompose` - 分解物品\n`/combine` - 合成物品\n`/recipes` - 查看合成表', inline: true },
-                    { name: '⚔️ RPG系統', value: '`/equipment` - 裝備系統\n`/skill` - 技能升級\n`/pet` - 寵物系統\n`/guild` - 公會系統\n`/battle` - 戰鬥系統\n`/quest` - 任務列表', inline: true },
-                    { name: '🏟️ 競技娛樂', value: '`/arena` - 競技場\n`/dungeon` - 地下城探險\n`/season` - 季節活動\n`/event` - 當前事件\n`/shop` - 黑市商店\n`/market` - 動態市場', inline: true },
-                    { name: '📊 社群經濟', value: '`/trade` - 玩家交易\n`/rank` - 排行榜\n`/social` - 社交系統\n`/achievement` - 成就系統\n`/progress` - 進度追蹤\n`/codex` - 物品圖鑑', inline: true }
-                )
-                .setFooter({ text: '使用 /help [頁面] 查看詳細用法 | 例如: /help page:rpg' });
-
-            const select = new StringSelectMenuBuilder()
-                .setCustomId('help_select')
-                .setPlaceholder('選擇要查看的指令類別...')
-                .addOptions(
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('基本指令')
-                        .setDescription('背包、地圖、拾荒、維修、合成等')
-                        .setValue('basic')
-                        .setEmoji('🎮'),
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('RPG系統')
-                        .setDescription('裝備、技能、寵物、公會、戰鬥等')
-                        .setValue('rpg')
-                        .setEmoji('⚔️'),
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('競技娛樂')
-                        .setDescription('競技場、地下城、季節活動等')
-                        .setValue('arena')
-                        .setEmoji('🏟️'),
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('社群經濟')
-                        .setDescription('交易、排行榜、社交、成就等')
-                        .setValue('social')
-                        .setEmoji('📊'),
-                    new StringSelectMenuOptionBuilder()
-                        .setLabel('其他指令')
-                        .setDescription('每日任務、圖鑑、事件、管理等')
-                        .setValue('other')
-                        .setEmoji('🔧')
-                );
-
-            const row = new ActionRowBuilder().addComponents(select);
-
-            const response = await interaction.reply({ embeds: [embed], components: [row] });
-
-            const collector = response.createMessageComponentCollector({
-                componentType: ComponentType.StringSelect,
-                time: 60000
-            });
-
-            collector.on('collect', async (i) => {
-                if (i.user.id !== interaction.user.id) return i.reply({ content: '這不是你的幫助菜單', ephemeral: true });
-
-                const selectedValue = i.values[0];
-                let helpEmbed;
-                if (selectedValue === 'basic') {
-                    helpEmbed = createBasicHelpEmbed();
-                } else if (selectedValue === 'rpg') {
-                    helpEmbed = createRPGHelpEmbed();
-                } else if (selectedValue === 'arena') {
-                    helpEmbed = createArenaHelpEmbed();
-                } else if (selectedValue === 'social') {
-                    helpEmbed = createSocialHelpEmbed();
-                } else if (selectedValue === 'other') {
-                    helpEmbed = createOtherHelpEmbed();
-                }
-
-                await i.update({ embeds: [helpEmbed], components: [row] });
-            });
-
-            // 詳細頁面
-            let detailEmbed;
-            if (page === 'basic') {
-                detailEmbed = createBasicHelpEmbed();
-            } else if (page === 'rpg') {
-                detailEmbed = createRPGHelpEmbed();
-            } else if (page === 'arena') {
-                detailEmbed = createArenaHelpEmbed();
-            } else if (page === 'social') {
-                detailEmbed = createSocialHelpEmbed();
-            } else if (page === 'other') {
-                detailEmbed = createOtherHelpEmbed();
-            } else {
-                detailEmbed = new EmbedBuilder()
-                    .setTitle('❌ 無效頁面')
-                    .setColor(0xFF0000)
-                    .setDescription('請選擇有效的頁面：basic, rpg, arena, social, other');
-            }
-            
-            return interaction.reply({ embeds: [detailEmbed], components: [row] });
+        // 詳細頁面邏輯
+        let detailEmbed;
+        if (page === 'basic') {
+            detailEmbed = createBasicHelpEmbed();
+        } else if (page === 'rpg') {
+            detailEmbed = createRPGHelpEmbed();
+        } else if (page === 'arena') {
+            detailEmbed = createArenaHelpEmbed();
+        } else if (page === 'social') {
+            detailEmbed = createSocialHelpEmbed();
+        } else if (page === 'other') {
+            detailEmbed = createOtherHelpEmbed();
         }
+
+        // 如果不是 main 頁面，直接返回詳細頁面
+        if (page !== 'main') {
+            return interaction.reply({ embeds: [detailEmbed] });
+        }
+
+        // main 頁面 - 顯示指令總覽和選單
+        const embed = new EmbedBuilder()
+            .setTitle('🛠️ 異常工坊：指令指南')
+            .setColor(0x00FFCC)
+            .setDescription('歡迎來到異常工坊！使用 `/help [頁面]` 查看詳細說明\n\n**🎮 全新RPG體驗！** 現在支援裝備、技能、寵物、公會等系統！')
+            .addFields(
+                { name: '🎮 基本指令', value: '`/bag` - 查看背包\n`/map [地區]` - 移動地區\n`/scavenge` - 拾荒零件\n`/decompose` - 分解物品\n`/combine` - 合成物品\n`/recipes` - 查看合成表', inline: true },
+                { name: '⚔️ RPG系統', value: '`/equipment` - 裝備系統\n`/skill` - 技能升級\n`/pet` - 寵物系統\n`/guild` - 公會系統\n`/battle` - 戰鬥系統\n`/quest` - 任務列表', inline: true },
+                { name: '🏟️ 競技娛樂', value: '`/arena` - 競技場\n`/dungeon` - 地下城探險\n`/season` - 季節活動\n`/event` - 當前事件\n`/shop` - 黑市商店\n`/market` - 動態市場', inline: true },
+                { name: '📊 社群經濟', value: '`/trade` - 玩家交易\n`/rank` - 排行榜\n`/social` - 社交系統\n`/achievement` - 成就系統\n`/progress` - 進度追蹤\n`/codex` - 物品圖鑑', inline: true }
+            )
+            .setFooter({ text: '使用 /help [頁面] 查看詳細用法 | 例如: /help page:rpg' });
+
+        const select = new StringSelectMenuBuilder()
+            .setCustomId('help_select')
+            .setPlaceholder('選擇要查看的指令類別...')
+            .addOptions(
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('基本指令')
+                    .setDescription('背包、地圖、拾荒、維修、合成等')
+                    .setValue('basic')
+                    .setEmoji('🎮'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('RPG系統')
+                    .setDescription('裝備、技能、寵物、公會、戰鬥等')
+                    .setValue('rpg')
+                    .setEmoji('⚔️'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('競技娛樂')
+                    .setDescription('競技場、地下城、季節活動等')
+                    .setValue('arena')
+                    .setEmoji('🏟️'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('社群經濟')
+                    .setDescription('交易、排行榜、社交、成就等')
+                    .setValue('social')
+                    .setEmoji('📊'),
+                new StringSelectMenuOptionBuilder()
+                    .setLabel('其他指令')
+                    .setDescription('每日任務、圖鑑、事件、管理等')
+                    .setValue('other')
+                    .setEmoji('🔧')
+            );
+
+        const row = new ActionRowBuilder().addComponents(select);
+
+        const response = await interaction.reply({ embeds: [embed], components: [row] });
+
+        const collector = response.createMessageComponentCollector({
+            componentType: ComponentType.StringSelect,
+            time: 60000
+        });
+
+        collector.on('collect', async (i) => {
+            if (i.user.id !== interaction.user.id) return i.reply({ content: '這不是你的幫助菜單', ephemeral: true });
+
+            const selectedValue = i.values[0];
+            let helpEmbed;
+            if (selectedValue === 'basic') {
+                helpEmbed = createBasicHelpEmbed();
+            } else if (selectedValue === 'rpg') {
+                helpEmbed = createRPGHelpEmbed();
+            } else if (selectedValue === 'arena') {
+                helpEmbed = createArenaHelpEmbed();
+            } else if (selectedValue === 'social') {
+                helpEmbed = createSocialHelpEmbed();
+            } else if (selectedValue === 'other') {
+                helpEmbed = createOtherHelpEmbed();
+            }
+
+            await i.update({ embeds: [helpEmbed], components: [row] });
+        });
     }
 };
 
