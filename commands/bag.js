@@ -31,7 +31,8 @@ module.exports = {
             else categorized['📦 其他物資'].push(text);
         }
 
-        const embed = new EmbedBuilder().setTitle('🎒 倖存者背包').setColor(0x3498db);
+        const embed = new EmbedBuilder().setTitle('🎒 倖存者背包').setColor(0x3498db)
+            .setFooter({ text: '使用 /use item:物品名稱 來使用背包中的消耗品或合成道具。' });
         for (const [cat, items] of Object.entries(categorized)) {
             if (items.length) embed.addFields({ name: cat, value: items.join('\n'), inline: true });
         }

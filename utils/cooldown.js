@@ -27,7 +27,14 @@ function setCooldown(userId, commandName) {
     if (!data.cooldowns) data.cooldowns = {};
     if (!data.cooldowns[userId]) data.cooldowns[userId] = {};
 
-    const duration = (COOLDOWN_TIMES[commandName] || 10) * 1000;
+    const player = data.players?.[userId];
+    const reduction = (player?.cooldownReductionExpiry && player.cooldownReductionExpiry > Date.now()) ? (player.cooldownReduction || 0) : 0;
+    let duration = (COOLDOWN_TIMES[commandName] || 10) * 1000;
+
+    if (reduction > 0) {
+        duration = Math.max(5000, Math.floor(duration * Math.max(0.1, (100 - reduction) / 100)));
+    }
+
     data.cooldowns[userId][commandName] = Date.now() + duration;
 
     db.write(data);

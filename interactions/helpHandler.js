@@ -52,7 +52,7 @@ async function handleHelpSelect(interaction) {
                 { name: '📅 /daily', value: '每日任務\n**用法：** `/daily`' },
                 { name: '📖 /codex', value: '物品圖鑑\n**用法：** `/codex`' },
                 { name: '🎉 /event', value: '當前事件\n**用法：** `/event`' },
-                { name: '🎁 /redeem [代碼]', value: '兌換代碼\n**用法：** `/redeem ABC123`' },
+                { name: '🎁 /redeem [代碼]', value: '兌換代碼\n**用法如下：** `/redeem ABC123`' },
                 { name: '⚙️ /admin', value: '管理員指令\n**用法：** `/admin`' }
             );
     };

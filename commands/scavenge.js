@@ -45,6 +45,10 @@ module.exports = {
         const randomItemName = itemPool[Math.floor(Math.random() * itemPool.length)];
 
         // 決定稀有度
+        const player = data.players[userId] || {};
+        const rarityBonus = (player.scavengingRarityBonus || 0) / 100;
+        rarityMultiplier += rarityBonus;
+
         let rarity = 'common';
         const rarityRoll = Math.random();
         if (rarityRoll > 0.95 * rarityMultiplier) rarity = 'legendary';

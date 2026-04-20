@@ -45,6 +45,9 @@ const GUILD_BUILDINGS = {
     }
 };
 
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const db = require('../utils/db');
+
 const GUILD_QUESTS = {
     daily_collection: {
         name: '每日收集',
@@ -250,7 +253,17 @@ module.exports = {
                 break;
 
             case 'build':
+                const buildGuild = data.players[userId].guild;
+                if (!buildGuild) {
+                    return interaction.reply({ content: '你還沒有加入公會！', ephemeral: true });
+                }
+
+                const buildingType = interaction.options.getString('building');
                 const buildGuildData = data.guilds[buildGuild];
+
+                if (!buildGuildData) {
+                    return interaction.reply({ content: '公會資料不存在，請稍後再試。', ephemeral: true });
+                }
 
                 if (buildGuildData.leader !== userId) {
                     return interaction.reply({ content: '只有公會會長才能建設建築！', ephemeral: true });

@@ -127,7 +127,7 @@ function createBasicHelpEmbed() {
             },
             {
                 name: '📍 /map [地區]',
-                value: '**移動地區**\n前往不同區域尋找不同物品\n**可用地區：** 工廠、荒野、實驗室\n**用法：** `/map 荒野`'
+                value: '**移動地區**\n前往不同區域尋找不同物品\n**可用地區：** 工廠、荒野、實驗室、圖書館\n**用法：** `/map 荒野`'
             },
             {
                 name: '🔍 /scavenge',
@@ -135,7 +135,11 @@ function createBasicHelpEmbed() {
             },
             {
                 name: '🌀 /combine',
-                value: '**合成物品**\n顯示可用的合成配方供選擇\n可選擇合成次數\n**用法：** `/combine`'
+                value: '**合成物品**\n顯示可用的合成配方供選擇\n可選擇合成次數\n**使用地點：** 工廠、實驗室、圖書館\n**用法：** `/combine`'
+            },
+            {
+                name: '🧪 /use',
+                value: '**使用背包道具**\n使用合成出的物品或消耗品來獲得效果\n例如：`/use item:時空卷軸 region:工廠`\n**用法：** `/use item:<道具名>`'
             },
             {
                 name: '🔨 /decompose',

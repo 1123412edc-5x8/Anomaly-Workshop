@@ -2,6 +2,8 @@ const { EmbedBuilder, SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBui
 const db = require('../utils/db');
 const items = require('../utils/items');
 
+const COMBINE_LOCATIONS = ['工廠', '實驗室', '圖書館'];
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('combine')
@@ -10,6 +12,11 @@ module.exports = {
         const userId = interaction.user.id;
         let data = db.read();
         const player = data.players?.[userId];
+        const location = player?.currentLocation || '工廠';
+
+        if (!COMBINE_LOCATIONS.includes(location)) {
+            return interaction.reply({ content: `❌ 目前無法在 ${location} 進行合成。請使用 /map 前往 ${COMBINE_LOCATIONS.join('、')} 之一天。`, ephemeral: true });
+        }
 
         if (!player || !player.inventory || player.inventory.length < 2) {
             return interaction.reply({ content: '❌ 背包物品不足 2 個，無法合成。', ephemeral: true });
@@ -43,9 +50,10 @@ module.exports = {
 
         // 創建選擇菜單
         const options = possibleRecipes.map((recipe, index) => {
+            const [materialA, materialB] = recipe.key.split('+');
             return new StringSelectMenuOptionBuilder()
-                .setLabel(`${recipe.key} → ${recipe.result}`)
-                .setDescription(`可合成 ${recipe.maxCombines} 次`)
+                .setLabel(`${materialA} + ${materialB} → ${recipe.result}`)
+                .setDescription(`可合成 ${recipe.maxCombines} 次，材料：${materialA} x${countItem(player.inventory, materialA)} / ${materialB} x${countItem(player.inventory, materialB)}`)
                 .setValue(`combine_${index}`);
         });
 
@@ -58,9 +66,17 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🌀 合成物品')
-            .setDescription('請選擇要合成的配方：\n• 顯示可合成次數\n• 選擇後可調整合成數量')
-            .setColor(0x00FFFF);
+            .setDescription('選擇配方後，系統會顯示可合成次數及更多細節。\n• 每次合成可獲得積分\n• 相同材料可合成多次\n• 系統會自動移除所需材料')
+            .setColor(0x00FFFF)
+            .addFields(
+                { name: '🔍 可用配方數量', value: `${possibleRecipes.length} 種可合成配方`, inline: true },
+                { name: '📌 提示', value: '若有相同材料，可選擇合成多次以一次獲得更多成品。', inline: true }
+            );
 
         await interaction.reply({ embeds: [embed], components: [row] });
     }
 };
+
+function countItem(inventory, name) {
+    return inventory.filter(item => item.name === name).length;
+}
