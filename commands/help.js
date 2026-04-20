@@ -175,7 +175,7 @@ function createRPGHelpEmbed() {
             },
             {
                 name: '📋 /quest',
-                value: '**任務系統**\n查看和完成各類任務\n**用法：** `/quest`\n**任務類型：** 初心者考驗、維修大師、完美合成等\n**獎勵：** 經驗值和特殊物品'
+                value: '**綜合任務系統**\n查看和完成各類任務\n**用法：** `/quest`\n**任務類型：** 每日、每週、成就、特殊任務\n**功能：** 自動進度追蹤、獎勵領取、任務重置\n**獎勵：** 經驗值、水晶、稀有物品'
             }
         );
 }
@@ -203,7 +203,7 @@ function createArenaHelpEmbed() {
             },
             {
                 name: '🏪 /shop',
-                value: '**黑市商店**\n購買稀有物品和升級道具\n**用法：** `/shop`\n**物品：** 特殊工具、穩定劑、擴展模組等\n**貨幣：** 熵結晶'
+                value: '**進階商店系統**\n購買稀有物品和升級道具\n**用法：** `/shop`\n**功能：** 10種分類商品、動態購買、效果應用\n**物品：** 武器、防具、消耗品、特殊工具等\n**貨幣：** 熵結晶'
             },
             {
                 name: '📊 /market [動作]',
@@ -219,11 +219,11 @@ function createSocialHelpEmbed() {
         .addFields(
             {
                 name: '💱 /trade [子命令]',
-                value: '**玩家交易**\n與其他玩家交換物品\n**子命令：**\n`/trade list` - 列出你的物品\n`/trade request @玩家 編號1 @玩家 編號2` - 發起交易\n`/trade pending` - 查看待處理請求\n`/trade history` - 交易歷史記錄\n**特點：** 安全的物品交換系統'
+                value: '**玩家交易系統**\n與其他玩家交換物品的完整系統\n**子命令：**\n`/trade list` - 列出可交易物品\n`/trade offer @玩家 "物品名" "想要物品"` - 發起交易\n`/trade pending` - 查看待處理請求\n`/trade history` - 交易歷史記錄\n`/trade cancel [交易ID]` - 取消交易\n**特點：** 24小時有效期、DM通知、互動式確認'
             },
             {
-                name: '🏆 /rank',
-                value: '**排行榜**\n查看各項全球排行榜\n**用法：** `/rank`\n**排行類型：** 等級、經驗、藏品數量、熵值控制等\n**更新：** 即時更新排名'
+                name: '🏆 /rank [子命令]',
+                value: '**多維度排行榜**\n查看各項詳細排行榜\n**子命令：**\n`/rank leaderboard` - 綜合排行榜\n`/rank weekly` - 本週積分榜\n`/rank level` - 等級排行榜\n`/rank crystals` - 水晶排行榜\n`/rank guild` - 公會排行榜\n`/rank player @玩家` - 玩家個人排名\n**特點：** 互動式切換、成就徽章'
             },
             {
                 name: '👥 /social [動作]',
@@ -234,8 +234,8 @@ function createSocialHelpEmbed() {
                 value: '**成就系統**\n查看已解鎖的成就\n**用法：** `/achievement`\n**成就類型：** 初心者、收藏家、戰士、工匠等\n**獎勵：** 特殊稱號和稀有物品'
             },
             {
-                name: '📈 /progress',
-                value: '**進度追蹤**\n查看個人遊戲統計\n**用法：** `/progress`\n**統計：** 等級、經驗、拾荒次數、戰鬥勝利等\n**別名：** `/進度`'
+                name: '📈 /progress [子命令]',
+                value: '**詳細進度追蹤**\n查看個人遊戲統計和成就\n**子命令：**\n`/progress overview` - 總進度總覽\n`/progress achievements` - 成就進度\n`/progress collection` - 收藏進度\n`/progress stats` - 詳細統計\n**特點：** 可視化進度條、成就追蹤'
             },
             {
                 name: '📖 /codex',

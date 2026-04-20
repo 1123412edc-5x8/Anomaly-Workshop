@@ -1,30 +1,48 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const db = require('../utils/db');
 
-const DUNGEONS = {
-    scrap_yard: {
-        name: '廢鐵場',
-        description: '充滿危險機械的廢棄工廠',
-        difficulty: '簡單',
-        levels: 5,
-        rewards: ['工業零件', '機械組件', '稀有金屬'],
-        enemies: ['廢鐵守衛', '生鏽機器人', '異常電磁場']
+const DUNGEON_EVENTS = {
+    combat: {
+        name: '戰鬥事件',
+        description: '遭遇強敵，需要戰鬥才能通過！',
+        success_rate: 0.7,
+        rewards: { exp: 50, crystals: 10 },
+        penalty: { damage: 15, stamina_loss: 10 }
     },
-    anomaly_lab: {
-        name: '異常實驗室',
-        description: '充滿未知危險的地下實驗室',
-        difficulty: '中等',
-        levels: 8,
-        rewards: ['精密組件', '實驗數據', '能量核心'],
-        enemies: ['變異生物', '實驗失敗品', 'AI守護者']
+    treasure: {
+        name: '寶藏事件',
+        description: '發現隱藏的寶藏！',
+        success_rate: 1.0,
+        rewards: { exp: 25, crystals: 25, items: ['稀有零件', '能量核心'] },
+        penalty: null
     },
-    entropy_core: {
-        name: '熵值核心',
-        description: '通往熵值核心的危險通道',
-        difficulty: '困難',
-        levels: 12,
-        rewards: ['熵結晶', '神話級零件', '未知科技'],
-        enemies: ['熵值守衛', '時空異常', '核心守護者']
+    trap: {
+        name: '陷阱事件',
+        description: '觸發危險陷阱！',
+        success_rate: 0.5,
+        rewards: null,
+        penalty: { damage: 25, stamina_loss: 15, item_loss: true }
+    },
+    rest: {
+        name: '休息事件',
+        description: '找到安全的休息點，可以恢復體力！',
+        success_rate: 1.0,
+        rewards: { stamina_restore: 30 },
+        penalty: null
+    },
+    puzzle: {
+        name: '謎題事件',
+        description: '遇到需要解決的謎題！',
+        success_rate: 0.6,
+        rewards: { exp: 75, crystals: 20, items: ['智慧水晶'] },
+        penalty: { stamina_loss: 5 }
+    },
+    merchant: {
+        name: '商人事件',
+        description: '遇到地下城商人，可以購買特殊物品！',
+        success_rate: 1.0,
+        rewards: { merchant_access: true },
+        penalty: null
     }
 };
 
@@ -114,30 +132,27 @@ module.exports = {
 
                 player.dungeon.current = dungeonKey;
                 player.dungeon.progress = 1;
+                player.dungeon.events = [];
                 player.stamina -= 20;
 
                 db.write(data);
 
+                // 立即處理第一層事件
+                const firstEvent = processDungeonEvent(player, dungeon, 1);
+                player.dungeon.events.push({
+                    level: 1,
+                    type: firstEvent.type,
+                    resolved: false
+                });
+
                 const enterEmbed = new EmbedBuilder()
                     .setTitle(`🏰 進入 ${dungeon.name}！`)
-                    .setDescription(`你開始挑戰 ${dungeon.name}！\n\n**第 1 層**\n${dungeon.description}`)
+                    .setDescription(`你開始挑戰 ${dungeon.name}！\n\n**第 1 層**\n${dungeon.description}\n\n**遭遇事件：${firstEvent.description}**`)
                     .setColor(0xFF6347)
-                    .setFooter({ text: '使用按鈕繼續探險' });
+                    .setFooter({ text: '選擇你的行動' });
 
-                const actionRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('dungeon_continue')
-                        .setLabel('繼續前進')
-                        .setStyle(ButtonStyle.Primary)
-                        .setEmoji('🏃'),
-                    new ButtonBuilder()
-                        .setCustomId('dungeon_retreat')
-                        .setLabel('撤退')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setEmoji('🏃‍♂️‍➡️')
-                );
-
-                interaction.reply({ embeds: [enterEmbed], components: [actionRow] });
+                const eventButtons = createEventButtons(firstEvent.type);
+                interaction.reply({ embeds: [enterEmbed], components: [eventButtons] });
                 break;
 
             case 'status':
@@ -164,10 +179,12 @@ module.exports = {
 // 處理地下城事件
 function processDungeonEvent(player, dungeon, level) {
     const events = [
-        { type: 'combat', chance: 0.6, description: '遭遇敵人！' },
-        { type: 'treasure', chance: 0.2, description: '發現寶藏！' },
-        { type: 'trap', chance: 0.15, description: '觸發陷阱！' },
-        { type: 'rest', chance: 0.05, description: '找到休息點！' }
+        { type: 'combat', chance: 0.4 },
+        { type: 'treasure', chance: 0.2 },
+        { type: 'trap', chance: 0.15 },
+        { type: 'rest', chance: 0.1 },
+        { type: 'puzzle', chance: 0.1 },
+        { type: 'merchant', chance: 0.05 }
     ];
 
     const roll = Math.random();
@@ -176,16 +193,165 @@ function processDungeonEvent(player, dungeon, level) {
     for (const event of events) {
         cumulativeChance += event.chance;
         if (roll <= cumulativeChance) {
-            return event;
+            return {
+                type: event.type,
+                ...DUNGEON_EVENTS[event.type]
+            };
         }
     }
 
-    return events[0]; // fallback
+    return {
+        type: 'combat',
+        ...DUNGEON_EVENTS.combat
+    };
+}
+
+function createEventButtons(eventType) {
+    const buttons = [];
+
+    switch (eventType) {
+        case 'combat':
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId('dungeon_fight')
+                    .setLabel('戰鬥')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('⚔️'),
+                new ButtonBuilder()
+                    .setCustomId('dungeon_flee')
+                    .setLabel('逃跑')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🏃‍♂️‍➡️')
+            );
+            break;
+        case 'treasure':
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId('dungeon_collect')
+                    .setLabel('收集')
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('💰')
+            );
+            break;
+        case 'trap':
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId('dungeon_disarm')
+                    .setLabel('解除')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🔧'),
+                new ButtonBuilder()
+                    .setCustomId('dungeon_ignore')
+                    .setLabel('無視')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🚶')
+            );
+            break;
+        case 'rest':
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId('dungeon_rest')
+                    .setLabel('休息')
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('😴')
+            );
+            break;
+        case 'puzzle':
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId('dungeon_solve')
+                    .setLabel('解謎')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🧠'),
+                new ButtonBuilder()
+                    .setCustomId('dungeon_skip')
+                    .setLabel('跳過')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('⏭️')
+            );
+            break;
+        case 'merchant':
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId('dungeon_trade')
+                    .setLabel('交易')
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('💼'),
+                new ButtonBuilder()
+                    .setCustomId('dungeon_leave')
+                    .setLabel('離開')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('👋')
+            );
+            break;
+    }
+
+    return new ActionRowBuilder().addComponents(...buttons);
+}
+
+function resolveDungeonEvent(player, eventType, action, data) {
+    const event = DUNGEON_EVENTS[eventType];
+    const success = Math.random() < event.success_rate;
+
+    let result = {
+        success: success,
+        rewards: null,
+        penalty: null,
+        message: ''
+    };
+
+    if (success) {
+        if (event.rewards) {
+            result.rewards = event.rewards;
+            result.message = `✅ ${event.name}成功！`;
+
+            // 應用獎勵
+            if (event.rewards.exp) {
+                // 這裡可以添加經驗系統
+                result.message += `\n獲得 ${event.rewards.exp} 經驗值！`;
+            }
+            if (event.rewards.crystals) {
+                player.entropy_crystal = (player.entropy_crystal || 0) + event.rewards.crystals;
+                result.message += `\n獲得 ${event.rewards.crystals} 💎！`;
+            }
+            if (event.rewards.stamina_restore) {
+                player.stamina = Math.min(100, player.stamina + event.rewards.stamina_restore);
+                result.message += `\n恢復 ${event.rewards.stamina_restore} 點體力！`;
+            }
+            if (event.rewards.items) {
+                event.rewards.items.forEach(item => {
+                    player.inventory.push(item);
+                });
+                result.message += `\n獲得物品：${event.rewards.items.join(', ')}`;
+            }
+        }
+    } else {
+        if (event.penalty) {
+            result.penalty = event.penalty;
+            result.message = `❌ ${event.name}失敗！`;
+
+            // 應用懲罰
+            if (event.penalty.damage) {
+                // 這裡可以添加生命值系統
+                result.message += `\n受到 ${event.penalty.damage} 點傷害！`;
+            }
+            if (event.penalty.stamina_loss) {
+                player.stamina = Math.max(0, player.stamina - event.penalty.stamina_loss);
+                result.message += `\n失去 ${event.penalty.stamina_loss} 點體力！`;
+            }
+            if (event.penalty.item_loss && player.inventory.length > 0) {
+                const lostItem = player.inventory.pop();
+                result.message += `\n失去物品：${lostItem}`;
+            }
+        }
+    }
+
+    return result;
 }
 
 function generateDungeonRewards(dungeon, level) {
     const rewards = [];
-    const rewardCount = Math.floor(Math.random() * 3) + 1; // 1-3 個獎勵
+    const rewardCount = Math.floor(Math.random() * 3) + 1;
 
     for (let i = 0; i < rewardCount; i++) {
         const randomReward = dungeon.rewards[Math.floor(Math.random() * dungeon.rewards.length)];
@@ -196,4 +362,5 @@ function generateDungeonRewards(dungeon, level) {
 }
 
 module.exports.processDungeonEvent = processDungeonEvent;
+module.exports.resolveDungeonEvent = resolveDungeonEvent;
 module.exports.generateDungeonRewards = generateDungeonRewards;
