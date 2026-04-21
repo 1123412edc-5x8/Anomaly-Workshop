@@ -13,18 +13,7 @@ module.exports = {
             }
             return;
         }
-// 在你的 interactionCreate.js 裡面
-if (interaction.isAutocomplete()) {
-    const command = interaction.client.commands.get(interaction.commandName);
-        if (!command) return;
 
-            try {
-                    await command.autocomplete(interaction);
-                        } catch (error) {
-                                console.error('選單補齊發生錯誤:', error);
-                                    }
-                                        return; // 處理完選單後一定要 return，不要往下跑 execute
-                                        }
         // 處理斜線指令
         if (interaction.isChatInputCommand()) {
             const command = interaction.client.commands.get(interaction.commandName);

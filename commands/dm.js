@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 // 管理員 ID 列表 (可根據需要修改)
-const ADMINS = ['1292424394957918248'];
+const ADMINS = ['1292424394957918248', 'YOUR_USER_ID_HERE'];
 
 module.exports = {
     data: new SlashCommandBuilder()
