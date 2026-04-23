@@ -5,7 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('market')
         .setDescription('工作坊動態交易市場')
-        // 1. 價格查詢
+        // 1. 查看價格
         .addSubcommand(sub => sub.setName('prices').setDescription('查看目前即時匯率'))
         // 2. 購買
         .addSubcommand(sub => 
@@ -13,27 +13,23 @@ module.exports = {
                 .setDescription('購買物資')
                 .addStringOption(o => o.setName('item').setDescription('物品名稱').setRequired(true).setAutocomplete(true))
                 .addIntegerOption(o => o.setName('amount').setDescription('購買數量').setMinValue(1).setRequired(true)))
-        // 3. 賣出 (優化後的選項順序)
+        // 3. 賣出單一物品 (維持原本邏輯)
         .addSubcommand(sub => 
             sub.setName('sell')
-                .setDescription('售出物資')
-                .addStringOption(o => o.setName('item').setDescription('選擇出售物品').setRequired(true).setAutocomplete(true)) // 必填放在最前
-                .addIntegerOption(o => o.setName('amount').setDescription('出售數量 (若全選則不需填寫)').setMinValue(1)) // 選填
-                .addBooleanOption(o => o.setName('sell_all').setDescription('是否全部售出？'))), // 選填放在最後
+                .setDescription('售出特定物資')
+                .addStringOption(o => o.setName('item').setDescription('選擇出售物品').setRequired(true).setAutocomplete(true))
+                .addIntegerOption(o => o.setName('amount').setDescription('出售數量 (不填則預設賣出 1 個)').setMinValue(1)))
+        // 4. 全部售出 (新增！這就是你要的「一鍵清空」)
+        .addSubcommand(sub => 
+            sub.setName('sell_all')
+                .setDescription('一鍵售出背包內所有可交易物資')),
 
     async autocomplete(interaction) {
         try {
             const focusedValue = interaction.options.getFocused();
             const sub = interaction.options.getSubcommand();
             const data = db.read();
-            
-            // 初始化價格資料防止空白
-            const defaultPrices = { "生鏽齒輪": 100, "廢棄鋼板": 150, "變異幾何體": 300, "精密螺栓": 200, "預言水晶": 100 };
-            if (!data.market_prices || Object.keys(data.market_prices).length === 0) {
-                data.market_prices = defaultPrices;
-                db.write(data);
-            }
-            const prices = data.market_prices;
+            const prices = data.market_prices || { "預言水晶": 100, "生鏽齒輪": 100 };
 
             if (sub === 'buy') {
                 const choices = Object.keys(prices).map(name => ({
@@ -46,15 +42,13 @@ module.exports = {
             if (sub === 'sell') {
                 const player = data.players?.[interaction.user.id];
                 if (!player?.inventory) return await interaction.respond([]);
-                
                 const counts = {};
                 player.inventory.forEach(i => {
                     const name = typeof i === 'string' ? i : i.name;
                     counts[name] = (counts[name] || 0) + 1;
                 });
-
                 const choices = Object.entries(counts).map(([name, count]) => ({
-                    name: `${name} (持有 x${count} | 回收單價: 💰${Math.floor((prices[name] || 100) * 0.8)})`,
+                    name: `${name} (持有 x${count} | 單價: 💰${Math.floor((prices[name] || 100) * 0.8)})`,
                     value: name
                 }));
                 return await interaction.respond(choices.filter(c => c.name.includes(focusedValue)).slice(0, 25));
@@ -65,67 +59,77 @@ module.exports = {
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
         let data = db.read();
-        const userId = interaction.user.id;
-        const player = data.players?.[userId];
-        if (!player) return interaction.reply({ content: '❌ 找不到您的存檔。', ephemeral: true });
+        const player = data.players?.[interaction.user.id];
+        if (!player) return interaction.reply({ content: '❌ 找不到存檔。', ephemeral: true });
 
         if (!data.market_prices) data.market_prices = {};
 
-        // --- 查詢價格 ---
+        // --- 1. 查看價格 ---
         if (sub === 'prices') {
             const list = Object.entries(data.market_prices).map(([n, p]) => `**${n}**: 💰 \`${p}\``).join('\n');
-            const embed = new EmbedBuilder()
-                .setTitle('📊 市場即時匯率')
-                .setColor(0x3498db)
-                .setDescription(list || "市場目前平穩，尚無波動。")
-                .setTimestamp();
-            return await interaction.reply({ embeds: [embed] });
+            return await interaction.reply({ embeds: [new EmbedBuilder().setTitle('📊 市場匯率').setDescription(list || "尚無波動").setColor(0x3498db)] });
         }
 
+        // --- 2. 全部售出 (一鍵清空) ---
+        if (sub === 'sell_all') {
+            if (!player.inventory || player.inventory.length === 0) return interaction.reply({ content: '📭 背包是空的，沒什麼好賣的。', ephemeral: true });
+
+            let totalProfit = 0;
+            let soldItems = {};
+
+            // 處理所有物品
+            player.inventory.forEach(item => {
+                const name = typeof item === 'string' ? item : item.name;
+                const price = data.market_prices[name] || 100;
+                const sellPrice = Math.floor(price * 0.8);
+                
+                totalProfit += sellPrice;
+                soldItems[name] = (soldItems[name] || 0) + 1;
+                
+                // 每賣一個跌 2%
+                data.market_prices[name] = Math.max(10, price - Math.ceil(price * 0.02));
+            });
+
+            player.inventory = []; // 清空背包
+            player.entropy_crystal = (player.entropy_crystal || 0) + totalProfit;
+            
+            db.write(data);
+            
+            const summary = Object.entries(soldItems).map(([n, c]) => `${n} x${c}`).join(', ');
+            return interaction.reply(`♻️ **一鍵回收成功！**\n📦 售出：${summary}\n💰 總計獲得：**${totalProfit}** 結晶。`);
+        }
+
+        // --- 3. 買入 & 4. 單一賣出 (略，維持原本優化後的邏輯) ---
         const itemName = interaction.options.getString('item');
         let currentPrice = data.market_prices[itemName] || 100;
 
-        // --- 購買 ---
         if (sub === 'buy') {
             const amount = interaction.options.getInteger('amount');
-            const totalCost = currentPrice * amount;
-            if ((player.entropy_crystal || 0) < totalCost) return interaction.reply({ content: '❌ 結晶不足。', ephemeral: true });
-
+            const cost = currentPrice * amount;
+            if (player.entropy_crystal < cost) return interaction.reply({ content: '❌ 結晶不足。', ephemeral: true });
             data.market_prices[itemName] = currentPrice + Math.ceil(currentPrice * 0.02 * amount);
-            player.entropy_crystal -= totalCost;
+            player.entropy_crystal -= cost;
             for (let i = 0; i < amount; i++) player.inventory.push(itemName);
-            
             db.write(data);
-            return interaction.reply(`✅ 購買成功！購入 **${amount}** 個 **${itemName}**。漲至 \`${data.market_prices[itemName]}\``);
+            return interaction.reply(`✅ 買入成功！${itemName} 單價漲至 \`${data.market_prices[itemName]}\``);
         }
 
-        // --- 賣出 ---
         if (sub === 'sell') {
-            const sellAll = interaction.options.getBoolean('sell_all') || false; // 預設為 False
-            const amountInput = interaction.options.getInteger('amount');
-            
-            // 找出玩家背包中所有該物品的索引
+            const amount = interaction.options.getInteger('amount') || 1;
             const indices = [];
-            player.inventory.forEach((it, idx) => {
-                if ((typeof it === 'string' ? it : it.name) === itemName) indices.push(idx);
-            });
+            player.inventory.forEach((it, idx) => { if ((typeof it === 'string' ? it : it.name) === itemName) indices.push(idx); });
 
-            if (indices.length === 0) return interaction.reply({ content: `❌ 你沒有 \`${itemName}\`。`, ephemeral: true });
+            if (indices.length === 0) return interaction.reply({ content: `❌ 你沒有 ${itemName}。`, ephemeral: true });
 
-            // 核心邏輯：如果選 sell_all 就全賣，否則看 amountInput，如果都沒填就賣 1 個
-            const sellCount = sellAll ? indices.length : Math.min(amountInput || 1, indices.length);
-            const unitSellPrice = Math.floor(currentPrice * 0.8);
-            const profit = unitSellPrice * sellCount;
+            const sellCount = Math.min(amount, indices.length);
+            const profit = Math.floor(currentPrice * 0.8) * sellCount;
 
-            // 價格下跌 (保底 10)
             data.market_prices[itemName] = Math.max(10, currentPrice - Math.ceil(currentPrice * 0.02 * sellCount));
-            
-            // 移除物品 (從後往前刪除避免索引偏移)
-            indices.slice(0, sellCount).sort((a, b) => b - a).forEach(i => player.inventory.splice(i, 1));
+            indices.slice(0, sellCount).sort((a,b)=>b-a).forEach(i => player.inventory.splice(i, 1));
             player.entropy_crystal = (player.entropy_crystal || 0) + profit;
             
             db.write(data);
-            return interaction.reply(`💰 賣出成功！賣出 **${sellCount}** 個 **${itemName}**，獲得 **${profit}** 結晶。跌至 \`${data.market_prices[itemName]}\``);
+            return interaction.reply(`💰 售出成功！獲得 **${profit}** 結晶。跌至 \`${data.market_prices[itemName]}\``);
         }
     }
 };
