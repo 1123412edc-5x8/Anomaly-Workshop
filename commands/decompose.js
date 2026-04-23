@@ -74,7 +74,96 @@ module.exports = {
     },
 
     async execute(interaction) {
-        // ... (保持之前的 execute 邏輯)
-        // 記得執行前判斷 if (itemName === 'none' || itemName === 'error') 直接 return
+        try {
+            const itemName = interaction.options.getString('item');
+            const amountType = interaction.options.getString('amount');
+            const userId = interaction.user.id;
+
+            // 檢查錯誤狀態
+            if (itemName === 'none') {
+                return await interaction.reply({ content: '❌ 你的背包是空的，無法分解物品。', ephemeral: true });
+            }
+            if (itemName === 'error') {
+                return await interaction.reply({ content: '❌ 系統發生錯誤，請稍後再試。', ephemeral: true });
+            }
+
+            const data = db.read();
+            const player = data.players?.[userId];
+
+            if (!player || !player.inventory) {
+                return await interaction.reply({ content: '❌ 玩家資料異常。', ephemeral: true });
+            }
+
+            // 讀取分解規則
+            const rulePath = path.join(process.cwd(), 'data', 'deconstruct.json');
+            const rules = JSON.parse(fs.readFileSync(rulePath, 'utf8'));
+
+            if (!rules[itemName]) {
+                return await interaction.reply({ content: `❌ ${itemName} 無法分解。`, ephemeral: true });
+            }
+
+            const rule = rules[itemName];
+            const itemCount = player.inventory.filter(item => 
+                (typeof item === 'string' ? item : item.name) === itemName
+            ).length;
+
+            if (itemCount === 0) {
+                return await interaction.reply({ content: `❌ 你沒有 ${itemName} 可以分解。`, ephemeral: true });
+            }
+
+            // 決定分解數量
+            let decomposeCount;
+            if (amountType === 'single') {
+                decomposeCount = 1;
+            } else if (amountType === 'all') {
+                decomposeCount = itemCount;
+            } else {
+                return await interaction.reply({ content: '❌ 無效的分解數量選項。', ephemeral: true });
+            }
+
+            // 移除物品
+            let removed = 0;
+            player.inventory = player.inventory.filter(item => {
+                const name = typeof item === 'string' ? item : item.name;
+                if (name === itemName && removed < decomposeCount) {
+                    removed++;
+                    return false;
+                }
+                return true;
+            });
+
+            // 添加產出
+            const totalCrystals = rule.crystals * decomposeCount;
+            player.crystals = (player.crystals || 0) + totalCrystals;
+
+            const yields = [];
+            for (let i = 0; i < decomposeCount; i++) {
+                rule.yield.forEach(yieldItem => {
+                    yields.push(yieldItem);
+                    player.inventory.push(yieldItem);
+                });
+            }
+
+            // 保存資料
+            db.write(data);
+
+            // 創建嵌入消息
+            const embed = new EmbedBuilder()
+                .setTitle('🔧 分解完成')
+                .setDescription(`成功分解了 ${decomposeCount} 個 ${itemName}！`)
+                .setColor(0xFFA500)
+                .addFields(
+                    { name: '📦 分解數量', value: `${decomposeCount} 個`, inline: true },
+                    { name: '💎 獲得晶體', value: `${totalCrystals} 個`, inline: true },
+                    { name: '🎁 獲得物品', value: yields.join(', '), inline: true }
+                )
+                .setFooter({ text: '分解系統' });
+
+            await interaction.reply({ embeds: [embed] });
+
+        } catch (err) {
+            console.error('Decompose Execute Error:', err);
+            await interaction.reply({ content: '❌ 分解過程中發生錯誤，請聯繫管理員。', ephemeral: true });
+        }
     }
 };
