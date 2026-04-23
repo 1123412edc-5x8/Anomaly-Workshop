@@ -6,12 +6,12 @@ const path = require('path');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('decompose')
-        .setDescription('分解指定材料')
+        .setDescription('分解指定材料（僅限基礎材料）')
         .addStringOption(option => 
             option.setName('item')
-                .setDescription('請從清單中選擇要分解的物品')
+                .setDescription('請選擇要分解的物品')
                 .setRequired(true)
-                .setAutocomplete(true)) // 這裡開啟自動補齊
+                .setAutocomplete(true))
         .addStringOption(option =>
             option.setName('amount')
                 .setDescription('分解數量')
@@ -21,6 +21,7 @@ module.exports = {
                     { name: '全部分解', value: 'all' }
                 )),
 
+    // --- 自動補齊選單：確保玩家只能選到「有規則」且「背包有」的物品 ---
     async autocomplete(interaction) {
         try {
             const focusedValue = interaction.options.getFocused();
@@ -28,22 +29,15 @@ module.exports = {
             const data = db.read();
             const player = data.players?.[userId];
 
-            // 1. 基本安全檢查
-            if (!player || !player.inventory) {
-                return await interaction.respond([{ name: '⚠️ 你的背包是空的', value: 'none' }]);
-            }
+            if (!player || !player.inventory) return await interaction.respond([]);
 
-            // 2. 讀取規則檔案 (確保路徑在 Termux 是正確的)
+            // 讀取分解規則
             const rulePath = path.join(process.cwd(), 'data', 'deconstruct.json');
-            if (!fs.existsSync(rulePath)) {
-                console.log('找不到規則檔於:', rulePath);
-                return await interaction.respond([{ name: '⚠️ 伺服器遺失分解規則檔', value: 'none' }]);
-            }
+            if (!fs.existsSync(rulePath)) return await interaction.respond([]);
             
             const rules = JSON.parse(fs.readFileSync(rulePath, 'utf8'));
             const allowedNames = Object.keys(rules);
 
-            // 3. 篩選玩家背包中「符合分解規則」的物品
             const itemCounts = {};
             player.inventory.forEach(item => {
                 const name = typeof item === 'string' ? item : item.name;
@@ -52,118 +46,105 @@ module.exports = {
                 }
             });
 
-            // 4. 轉換為 Discord 選項
             const choices = Object.entries(itemCounts).map(([name, count]) => ({
                 name: `${name} (持有 x${count})`,
                 value: name 
             }));
 
-            // 5. 模糊搜尋過濾
             const filtered = choices
-                .filter(choice => choice.name.toLowerCase().includes(focusedValue.toLowerCase()))
+                .filter(choice => choice.name.includes(focusedValue))
                 .slice(0, 25);
 
-            // 必須回傳，否則選單會一直轉圈圈或變空白框
             await interaction.respond(filtered);
-
         } catch (err) {
-            console.error('Autocomplete Error:', err);
-            // 發生錯誤時至少回傳一個提示
-            await interaction.respond([{ name: '❌ 選單讀取發生異常', value: 'error' }]);
+            console.error('Autocomplete 錯誤:', err);
+            await interaction.respond([]);
         }
     },
 
+    // --- 執行邏輯：包含 8 個問題的修正 ---
     async execute(interaction) {
         try {
             const itemName = interaction.options.getString('item');
             const amountType = interaction.options.getString('amount');
             const userId = interaction.user.id;
 
-            // 檢查錯誤狀態
-            if (itemName === 'none') {
-                return await interaction.reply({ content: '❌ 你的背包是空的，無法分解物品。', ephemeral: true });
-            }
-            if (itemName === 'error') {
-                return await interaction.reply({ content: '❌ 系統發生錯誤，請稍後再試。', ephemeral: true });
-            }
-
             const data = db.read();
             const player = data.players?.[userId];
 
-            if (!player || !player.inventory) {
-                return await interaction.reply({ content: '❌ 玩家資料異常。', ephemeral: true });
-            }
+            if (!player) return await interaction.reply({ content: '❌ 找不到玩家資料。', ephemeral: true });
 
-            // 讀取分解規則
+            // 1. 讀取分解規則 (加入錯誤捕捉)
             const rulePath = path.join(process.cwd(), 'data', 'deconstruct.json');
+            if (!fs.existsSync(rulePath)) return await interaction.reply({ content: '❌ 伺服器遺失分解規則檔案。', ephemeral: true });
+            
             const rules = JSON.parse(fs.readFileSync(rulePath, 'utf8'));
-
-            if (!rules[itemName]) {
-                return await interaction.reply({ content: `❌ ${itemName} 無法分解。`, ephemeral: true });
-            }
-
             const rule = rules[itemName];
-            const itemCount = player.inventory.filter(item => 
-                (typeof item === 'string' ? item : item.name) === itemName
-            ).length;
 
-            if (itemCount === 0) {
-                return await interaction.reply({ content: `❌ 你沒有 ${itemName} 可以分解。`, ephemeral: true });
-            }
+            if (!rule) return await interaction.reply({ content: `❌ \`${itemName}\` 不可分解。`, ephemeral: true });
 
-            // 決定分解數量
-            let decomposeCount;
-            if (amountType === 'single') {
-                decomposeCount = 1;
-            } else if (amountType === 'all') {
-                decomposeCount = itemCount;
-            } else {
-                return await interaction.reply({ content: '❌ 無效的分解數量選項。', ephemeral: true });
-            }
+            // 2. 統計物品數量
+            const itemsInInv = player.inventory.filter(item => (typeof item === 'string' ? item : item.name) === itemName);
+            if (itemsInInv.length === 0) return await interaction.reply({ content: `❌ 你背包裡沒有 \`${itemName}\`。`, ephemeral: true });
 
-            // 移除物品
-            let removed = 0;
-            player.inventory = player.inventory.filter(item => {
-                const name = typeof item === 'string' ? item : item.name;
-                if (name === itemName && removed < decomposeCount) {
-                    removed++;
-                    return false;
+            const decomposeCount = amountType === 'all' ? itemsInInv.length : 1;
+
+            // 3. 移除物品邏輯 (使用倒序移除以確保索引安全)
+            let removedCount = 0;
+            for (let i = player.inventory.length - 1; i >= 0; i--) {
+                const name = typeof player.inventory[i] === 'string' ? player.inventory[i] : player.inventory[i].name;
+                if (name === itemName && removedCount < decomposeCount) {
+                    player.inventory.splice(i, 1);
+                    removedCount++;
                 }
-                return true;
-            });
-
-            // 添加產出
-            const totalCrystals = rule.crystals * decomposeCount;
-            player.crystals = (player.crystals || 0) + totalCrystals;
-
-            const yields = [];
-            for (let i = 0; i < decomposeCount; i++) {
-                rule.yield.forEach(yieldItem => {
-                    yields.push(yieldItem);
-                    player.inventory.push(yieldItem);
-                });
             }
 
-            // 保存資料
+            // 4. 計算獎勵 (修正變數名為 entropy_crystal 並增加積分)
+            const totalCrystals = (rule.crystals || 0) * decomposeCount;
+            const totalPoints = 10 * decomposeCount;
+            const totalGainedItems = [];
+
+            for (let i = 0; i < decomposeCount; i++) {
+                if (rule.yield) {
+                    rule.yield.forEach(y => {
+                        player.inventory.push(y);
+                        totalGainedItems.push(y);
+                    });
+                }
+            }
+
+            // 5. 更新玩家數據
+            player.entropy_crystal = (player.entropy_crystal || 0) + totalCrystals;
+            player.weekly_points = (player.weekly_points || 0) + totalPoints;
+
             db.write(data);
 
-            // 創建嵌入消息
+            // 6. 整理顯示資訊 (避免文字過長爆掉)
+            const summary = {};
+            totalGainedItems.forEach(item => summary[item] = (summary[item] || 0) + 1);
+            const yieldText = Object.entries(summary)
+                .map(([name, count]) => `• **${name}** x${count}`)
+                .join('\n');
+
             const embed = new EmbedBuilder()
-                .setTitle('🔧 分解完成')
-                .setDescription(`成功分解了 ${decomposeCount} 個 ${itemName}！`)
-                .setColor(0xFFA500)
+                .setTitle('🔧 分解成功')
+                .setColor(0x2ecc71)
+                .setDescription(`你分解了 **${decomposeCount}** 個 **${itemName}**`)
                 .addFields(
-                    { name: '📦 分解數量', value: `${decomposeCount} 個`, inline: true },
-                    { name: '💎 獲得晶體', value: `${totalCrystals} 個`, inline: true },
-                    { name: '🎁 獲得物品', value: yields.join(', '), inline: true }
+                    { name: '💎 獲得結晶', value: `+${totalCrystals}`, inline: true },
+                    { name: '📈 每週積分', value: `+${totalPoints}`, inline: true },
+                    { name: '📦 獲得零件', value: yieldText || '無額外產出' }
                 )
-                .setFooter({ text: '分解系統' });
+                .setFooter({ text: '異常工作坊 | 分解系統' })
+                .setTimestamp();
 
             await interaction.reply({ embeds: [embed] });
 
         } catch (err) {
-            console.error('Decompose Execute Error:', err);
-            await interaction.reply({ content: '❌ 分解過程中發生錯誤，請聯繫管理員。', ephemeral: true });
+            console.error('分解執行出錯:', err);
+            if (!interaction.replied) {
+                await interaction.reply({ content: '❌ 分解過程中發生未知錯誤。', ephemeral: true });
+            }
         }
     }
 };
