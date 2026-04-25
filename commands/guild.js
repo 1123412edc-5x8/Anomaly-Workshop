@@ -1,130 +1,134 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
 
-// --- 建築設定 ---
+// --- 建築數據定義 ---
+const BUILD_META = {
+    workshop: { name: '工坊', icon: '⚒️', color: 0xe67e22, stat: '合成率' },
+    training_ground: { name: '訓練場', icon: '⚔️', color: 0xe74c3c, stat: '經驗加成' },
+    library: { name: '圖書館', icon: '📖', color: 0x3498db, stat: '學習效率' },
+    vault: { name: '寶庫', icon: '💰', color: 0xf1c40f, stat: '容量' }
+};
+
 const GUILD_BUILDINGS = {
-    workshop: { name: '工坊', emoji: '⚒️', levels: [{ cost: 1000, boost: 5 }, { cost: 2500, boost: 10 }, { cost: 5000, boost: 15 }, { cost: 10000, boost: 20 }, { cost: 20000, boost: 25 }] },
-    training_ground: { name: '訓練場', emoji: '⚔️', levels: [{ cost: 1500, boost: 10 }, { cost: 3000, boost: 20 }, { cost: 6000, boost: 30 }, { cost: 12000, boost: 40 }, { cost: 25000, boost: 50 }] },
-    library: { name: '圖書館', emoji: '📖', levels: [{ cost: 2000, boost: 8 }, { cost: 4000, boost: 15 }, { cost: 8000, boost: 25 }, { cost: 16000, boost: 35 }, { cost: 32000, boost: 50 }] },
-    vault: { name: '寶庫', emoji: '💰', levels: [{ cost: 3000, boost: 10000 }, { cost: 6000, boost: 25000 }, { cost: 12000, boost: 50000 }, { cost: 24000, boost: 100000 }, { cost: 50000, boost: 250000 }] }
+    workshop: { levels: [{ cost: 1000, val: 5 }, { cost: 2500, val: 10 }, { cost: 5000, val: 15 }, { cost: 10000, val: 20 }, { cost: 20000, val: 25 }] },
+    training_ground: { levels: [{ cost: 1500, val: 10 }, { cost: 3000, val: 20 }, { cost: 6000, val: 30 }, { cost: 12000, val: 40 }, { cost: 25000, val: 50 }] },
+    library: { levels: [{ cost: 2000, val: 8 }, { cost: 4000, val: 15 }, { cost: 8000, val: 25 }, { cost: 16000, val: 35 }, { cost: 32000, val: 50 }] },
+    vault: { levels: [{ cost: 3000, val: 10000 }, { cost: 6000, val: 25000 }, { cost: 12000, val: 50000 }, { cost: 24000, val: 100000 }, { cost: 50000, val: 250000 }] }
+};
+
+// --- 任務數據定義 ---
+const GUILD_QUESTS = {
+    daily_collection: { name: '每日收集', target: 50, reward: 50 },
+    synthesis_master: { name: '合成大師', target: 100, reward: 200 },
+    battle_champion: { name: '戰鬥冠軍', target: 200, reward: 500 }
 };
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('guild')
-        .setDescription('公會系統')
-        .addSubcommand(sub => sub.setName('create').setDescription('創建公會').addStringOption(o => o.setName('name').setRequired(true).setDescription('公會名稱')))
-        .addSubcommand(sub => sub.setName('join').setDescription('加入公會').addStringOption(o => o.setName('name').setRequired(true).setDescription('公會名稱')))
-        .addSubcommand(sub => sub.setName('info').setDescription('查看公會資訊'))
-        .addSubcommand(sub => sub.setName('donate').setDescription('捐獻資源').addIntegerOption(o => o.setRequired(true).setName('amount').setDescription('捐獻結晶數量')))
-        .addSubcommand(sub => sub.setName('build').setDescription('建設公會建築').addStringOption(o => o.setRequired(true).setName('building').setDescription('建築類型').addChoices({name:'工坊',value:'workshop'},{name:'訓練場',value:'training_ground'},{name:'圖書館',value:'library'},{name:'寶庫',value:'vault'})))
-        .addSubcommand(sub => sub.setName('quests').setDescription('查看任務')),
+        .setDescription('勢力管理系統')
+        .addSubcommand(s => s.setName('create').setDescription('建立勢力').addStringOption(o => o.setName('name').setRequired(true).setDescription('名稱')))
+        .addSubcommand(s => s.setName('info').setDescription('查看勢力概況'))
+        .addSubcommand(s => s.setName('donate').setDescription('貢獻資源').addIntegerOption(o => o.setName('amt').setRequired(true).setDescription('數量')))
+        .addSubcommand(s => s.setName('build').setDescription('擴建工程').addStringOption(o => o.setName('type').setRequired(true).addChoices({name:'⚒️ 工坊',value:'workshop'},{name:'⚔️ 訓練場',value:'training_ground'},{name:'📖 圖書館',value:'library'},{name:'💰 寶庫',value:'vault'})))
+        .addSubcommand(s => s.setName('quests').setDescription('任務布告欄'))
+        .addSubcommand(s => s.setName('claim').setDescription('領取補給獎勵').addStringOption(o => o.setName('id').setRequired(true).setDescription('任務代碼'))),
 
     execute: async (interaction) => {
-        const subcommand = interaction.options.getSubcommand();
-        const userId = interaction.user.id;
+        const sub = interaction.options.getSubcommand();
+        const uid = interaction.user.id;
         let data = db.read();
 
-        // 基礎安全性檢查
-        if (!data.players[userId]) return interaction.reply('請先開始遊戲！');
-        const pGuildName = data.players[userId].guild;
+        // 🛡️ 靜默修復：處理截圖中 null.members 的報錯源頭
+        const gName = data.players[uid]?.guild;
+        if (gName && (!data.guilds || !data.guilds[gName])) {
+            data.players[uid].guild = null;
+            db.write(data);
+        }
 
-        switch (subcommand) {
-            case 'create':
-                const newName = interaction.options.getString('name');
-                if (pGuildName) return interaction.reply('你已在公會中！');
-                
-                data.guilds[newName] = { leader: userId, members: [userId], level: 1, exp: 0, treasury: 0, created: Date.now(), buildings: { workshop: 0, training_ground: 0, library: 0, vault: 0 } };
-                data.players[userId].guild = newName;
-                db.write(data);
-
-                const createEmbed = new EmbedBuilder()
-                    .setTitle('🏰 公會立旗成功')
-                    .setDescription(`傳奇公會 **${newName}** 宣告成立！`)
-                    .setColor(0x00FF00)
-                    .addFields({ name: '創始會長', value: interaction.user.username });
-                return interaction.reply({ embeds: [createEmbed] });
-
+        switch (sub) {
             case 'info':
-                if (!pGuildName) return interaction.reply('你還沒有公會。');
-                const guild = data.guilds[pGuildName];
-                if (!guild) {
-                    data.players[userId].guild = null; db.write(data);
-                    return interaction.reply('數據異常，已重置公會狀態。');
-                }
-
-                const mList = await Promise.all(guild.members.map(async id => {
+                if (!gName) return interaction.reply('🛡️ **偵測不到所屬勢力。** 請先建立或加入一個公會。');
+                const g = data.guilds[gName];
+                
+                const members = await Promise.all(g.members.map(async id => {
                     const m = await interaction.guild.members.fetch(id).catch(() => null);
-                    return m ? m.displayName : '未知成員';
+                    return m ? `\`${m.displayName}\`` : '`遺失信號`';
                 }));
 
-                const infoEmbed = new EmbedBuilder()
-                    .setTitle(`🏰 公會資訊 - ${pGuildName}`)
-                    .setThumbnail(interaction.guild.iconURL())
-                    .setColor(0x3498db)
+                return interaction.reply({ embeds: [new EmbedBuilder()
+                    .setTitle(`🏰 勢力檔案：${gName}`)
+                    .setColor(0x2c3e50)
                     .addFields(
-                        { name: '📈 等級', value: `Lv.${guild.level || 1}`, inline: true },
-                        { name: '💎 金庫', value: `${guild.treasury || 0}`, inline: true },
-                        { name: '👥 成員數', value: `${guild.members.length} 人`, inline: true },
-                        { name: '🏗️ 建築等級', value: `工坊: Lv.${guild.buildings.workshop} | 訓練場: Lv.${guild.buildings.training_ground}\n圖書館: Lv.${guild.buildings.library} | 寶庫: Lv.${guild.buildings.vault}` },
-                        { name: '📜 成員名單', value: mList.join(', ') }
-                    ).setTimestamp();
-                return interaction.reply({ embeds: [infoEmbed] });
+                        { name: '◈ 核心等級', value: `Lv.${g.level}`, inline: true },
+                        { name: '◈ 金庫儲備', value: `${g.treasury} 💎`, inline: true },
+                        { name: '◈ 成員組成', value: members.join(' ') || '暫無資料', inline: false },
+                        { name: '◈ 科技發展', value: `🛠️工坊: \`Lv.${g.buildings.workshop}\` ⚔️訓練: \`Lv.${g.buildings.training_ground}\` 📖圖書: \`Lv.${g.buildings.library}\` 💰寶庫: \`Lv.${g.buildings.vault}\`` }
+                    )] });
 
             case 'build':
-                const gBuild = data.guilds[pGuildName];
-                if (!gBuild || gBuild.leader !== userId) return interaction.reply('只有會長能發起建設。');
-                
-                const bType = interaction.options.getString('building');
-                const curLv = gBuild.buildings[bType] || 0;
-                const bConf = GUILD_BUILDINGS[bType];
+                const gData = data.guilds[gName];
+                if (!gData || gData.leader !== uid) return interaction.reply('⚠️ **權限拒絕：** 只有領袖能發起擴建工程。');
 
-                if (curLv >= 5) return interaction.reply('該建築已達到最高等級！');
+                const type = interaction.options.getString('type');
+                const curLv = gData.buildings[type] || 0;
+                const next = GUILD_BUILDINGS[type].levels[curLv];
 
-                const levelData = bConf.levels[curLv];
-                if (gBuild.treasury < levelData.cost) {
-                    return interaction.reply(`❌ 金庫結晶不足！升級需要 **${levelData.cost}**，目前僅有 **${gBuild.treasury}**。`);
-                }
+                if (curLv >= 5) return interaction.reply('🚫 **達到上限：** 該項目已完成最終階段開發。');
+                if (gData.treasury < next.cost) return interaction.reply(`⚠️ **資金不足：** 尚缺 ${next.cost - gData.treasury} 💎。`);
 
-                // 執行扣費與升級
-                gBuild.treasury -= levelData.cost;
-                gBuild.buildings[bType] += 1;
+                const prevVal = curLv === 0 ? 0 : GUILD_BUILDINGS[type].levels[curLv - 1].val;
+                gData.treasury -= next.cost;
+                gData.buildings[type]++;
                 db.write(data);
 
-                const buildEmbed = new EmbedBuilder()
-                    .setTitle(`${bConf.emoji} 建築升級完成！`)
-                    .setColor(0xF1C40F)
-                    .setDescription(`公會投入了大量資源，**${bConf.name}** 已順利擴建！`)
+                return interaction.reply({ embeds: [new EmbedBuilder()
+                    .setTitle(`${BUILD_META[type].icon} 擴建報告：${BUILD_META[type].name}`)
+                    .setColor(BUILD_META[type].color)
                     .addFields(
-                        { name: '🏗️ 項目', value: bConf.name, inline: true },
-                        { name: '💎 消耗結晶', value: `-${levelData.cost}`, inline: true },
-                        { name: '📊 等級變化', value: `Lv.${curLv} ➔ **Lv.${curLv + 1}**`, inline: true },
-                        { name: '✨ 獲得加成', value: `加成數值提升至 **+${levelData.boost}${bType === 'vault' ? ' 容量' : '%'}**` }
-                    )
-                    .setFooter({ text: '公會實力再次提升！' });
-                return interaction.reply({ embeds: [buildEmbed] });
-
-            case 'donate':
-                const amt = interaction.options.getInteger('amount');
-                if (!pGuildName || (data.players[userId].entropy_crystal || 0) < amt) return interaction.reply('結晶不足或沒公會！');
-
-                data.players[userId].entropy_crystal -= amt;
-                data.guilds[pGuildName].treasury += amt;
-                data.guilds[pGuildName].exp += amt * 2;
-                db.write(data);
-
-                const donateEmbed = new EmbedBuilder()
-                    .setTitle('💝 感謝捐獻')
-                    .setColor(0x1ABC9C)
-                    .setDescription(`你捐獻了 **${amt}** 結晶到公會金庫。`)
-                    .addFields({ name: '獲得貢獻', value: `公會經驗值 +${amt * 2}` });
-                return interaction.reply({ embeds: [donateEmbed] });
+                        { name: '◈ 資源投入', value: `-${next.cost} 💎`, inline: true },
+                        { name: '◈ 規模變動', value: `Lv.${curLv} ➔ **Lv.${curLv + 1}**`, inline: true },
+                        { name: '◈ 增益修正', value: `\`${BUILD_META[type].stat}\` 從 **+${prevVal}** 提升至 **+${next.val}**` }
+                    )] });
 
             case 'quests':
-                const qEmbed = new EmbedBuilder().setTitle('📜 公會當前任務').setColor(0x9B59B6);
-                // 這裡簡化顯示，你可以根據需要展開任務細節
-                qEmbed.setDescription('目前任務系統正在同步各成員進度中...');
+                if (!gName) return interaction.reply('🛡️ **無法讀取布告欄：** 請先歸屬一個勢力。');
+                const qEmbed = new EmbedBuilder().setTitle('📜 勢力任務布告欄').setColor(0x7f8c8d);
+                
+                const qList = data.guilds[gName].quests || GUILD_QUESTS;
+                Object.entries(qList).forEach(([id, q]) => {
+                    qEmbed.addFields({ name: `◈ ${q.name} [ID: ${id}]`, value: `進度: \`[${q.progress || 0}/${q.target}]\` | 獎勵: \`${q.reward} 💎\`` });
+                });
                 return interaction.reply({ embeds: [qEmbed] });
+
+            case 'claim':
+                const qId = interaction.options.getString('id');
+                const targetG = data.guilds[gName];
+                const quest = targetG?.quests?.[qId];
+
+                if (!quest) return interaction.reply('❌ **代碼錯誤：** 找不到該項任務。');
+                if (quest.progress < quest.target) return interaction.reply('⏳ **條件未達成：** 請繼續完成進度。');
+                if (quest.claimed) return interaction.reply('🚫 **重複領取：** 該補給已發放完畢。');
+
+                quest.claimed = true;
+                targetG.treasury += quest.reward;
+                db.write(data);
+
+                return interaction.reply({ embeds: [new EmbedBuilder()
+                    .setTitle('📦 補給發放')
+                    .setColor(0x2ecc71)
+                    .setDescription(`**${quest.name}** 已達成，金庫注入 **${quest.reward}** 💎！`)
+                ] });
+
+            case 'donate':
+                const amt = interaction.options.getInteger('amt');
+                if (!gName || (data.players[uid].entropy_crystal || 0) < amt) return interaction.reply('⚠️ **失敗：** 資源不足或沒公會。');
+
+                data.players[uid].entropy_crystal -= amt;
+                data.guilds[gName].treasury += amt;
+                data.guilds[gName].exp += amt * 2;
+                db.write(data);
+                return interaction.reply(`💎 **資源挹注：** 為公會貢獻了 **${amt}** 結晶。`);
         }
     }
 };
