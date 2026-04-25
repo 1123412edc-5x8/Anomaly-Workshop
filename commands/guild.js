@@ -1,19 +1,88 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../utils/db');
 
-// --- 保持你原本的建築與任務設定 ---
+// --- 你的原始建築設定 (完全保留) ---
 const GUILD_BUILDINGS = {
-    workshop: { name: '工坊', description: '提升成員的合成成功率', levels: [{ cost: 1000, effect: { synthesis_boost: 5 } }, { cost: 2500, effect: { synthesis_boost: 10 } }, { cost: 5000, effect: { synthesis_boost: 15 } }, { cost: 10000, effect: { synthesis_boost: 20 } }, { cost: 20000, effect: { synthesis_boost: 25 } }] },
-    training_ground: { name: '訓練場', description: '提升成員的戰鬥經驗獲取', levels: [{ cost: 1500, effect: { exp_boost: 10 } }, { cost: 3000, effect: { exp_boost: 20 } }, { cost: 6000, effect: { exp_boost: 30 } }, { cost: 12000, effect: { exp_boost: 40 } }, { cost: 25000, effect: { exp_boost: 50 } }] },
-    library: { name: '圖書館', description: '提升成員的技能學習效率', levels: [{ cost: 2000, effect: { skill_boost: 8 } }, { cost: 4000, effect: { skill_boost: 15 } }, { cost: 8000, effect: { skill_boost: 25 } }, { cost: 16000, effect: { skill_boost: 35 } }, { cost: 32000, effect: { skill_boost: 50 } }] },
-    vault: { name: '寶庫', description: '增加金庫容量和利息', levels: [{ cost: 3000, effect: { treasury_capacity: 10000, interest: 2 } }, { cost: 6000, effect: { treasury_capacity: 25000, interest: 3 } }, { cost: 12000, effect: { treasury_capacity: 50000, interest: 4 } }, { cost: 24000, effect: { treasury_capacity: 100000, interest: 5 } }, { cost: 50000, effect: { treasury_capacity: 250000, interest: 7 } }] }
+    workshop: {
+        name: '工坊',
+        description: '提升成員的合成成功率',
+        levels: [
+            { cost: 1000, effect: { synthesis_boost: 5 } },
+            { cost: 2500, effect: { synthesis_boost: 10 } },
+            { cost: 5000, effect: { synthesis_boost: 15 } },
+            { cost: 10000, effect: { synthesis_boost: 20 } },
+            { cost: 20000, effect: { synthesis_boost: 25 } }
+        ]
+    },
+    training_ground: {
+        name: '訓練場',
+        description: '提升成員的戰鬥經驗獲取',
+        levels: [
+            { cost: 1500, effect: { exp_boost: 10 } },
+            { cost: 3000, effect: { exp_boost: 20 } },
+            { cost: 6000, effect: { exp_boost: 30 } },
+            { cost: 12000, effect: { exp_boost: 40 } },
+            { cost: 25000, effect: { exp_boost: 50 } }
+        ]
+    },
+    library: {
+        name: '圖書館',
+        description: '提升成員的技能學習效率',
+        levels: [
+            { cost: 2000, effect: { skill_boost: 8 } },
+            { cost: 4000, effect: { skill_boost: 15 } },
+            { cost: 8000, effect: { skill_boost: 25 } },
+            { cost: 16000, effect: { skill_boost: 35 } },
+            { cost: 32000, effect: { skill_boost: 50 } }
+        ]
+    },
+    vault: {
+        name: '寶庫',
+        description: '增加金庫容量和利息',
+        levels: [
+            { cost: 3000, effect: { treasury_capacity: 10000, interest: 2 } },
+            { cost: 6000, effect: { treasury_capacity: 25000, interest: 3 } },
+            { cost: 12000, effect: { treasury_capacity: 50000, interest: 4 } },
+            { cost: 24000, effect: { treasury_capacity: 100000, interest: 5 } },
+            { cost: 50000, effect: { treasury_capacity: 250000, interest: 7 } }
+        ]
+    }
 };
 
+// --- 你的原始任務設定 (完全保留) ---
 const GUILD_QUESTS = {
-    daily_collection: { name: '每日收集', description: '全體成員今日拾荒次數達到50次', reward: { exp: 100, crystals: 50 }, progress: 0, target: 50, type: 'daily' },
-    synthesis_master: { name: '合成大師', description: '公會本週合成物品數量達到100個', reward: { exp: 500, crystals: 200 }, progress: 0, target: 100, type: 'weekly' },
-    battle_champion: { name: '戰鬥冠軍', description: '公會成員本月戰鬥勝利次數達到200次', reward: { exp: 1000, crystals: 500 }, progress: 0, target: 200, type: 'monthly' },
-    treasury_growth: { name: '金庫成長', description: '公會金庫累積達到5000結晶', reward: { exp: 300, crystals: 100 }, progress: 0, target: 5000, type: 'achievement' }
+    daily_collection: {
+        name: '每日收集',
+        description: '全體成員今日拾荒次數達到50次',
+        reward: { exp: 100, crystals: 50 },
+        progress: 0,
+        target: 50,
+        type: 'daily'
+    },
+    synthesis_master: {
+        name: '合成大師',
+        description: '公會本週合成物品數量達到100個',
+        reward: { exp: 500, crystals: 200 },
+        progress: 0,
+        target: 100,
+        type: 'weekly'
+    },
+    battle_champion: {
+        name: '戰鬥冠軍',
+        description: '公會成員本月戰鬥勝利次數達到200次',
+        reward: { exp: 1000, crystals: 500 },
+        progress: 0,
+        target: 200,
+        type: 'monthly'
+    },
+    treasury_growth: {
+        name: '金庫成長',
+        description: '公會金庫累積達到5000結晶',
+        reward: { exp: 300, crystals: 100 },
+        progress: 0,
+        target: 5000,
+        type: 'achievement'
+    }
 };
 
 module.exports = {
@@ -72,80 +141,82 @@ module.exports = {
                 if (!playerGuild) return interaction.reply({ content: '你還沒有加入公會！', ephemeral: true });
 
                 const guild = data.guilds[playerGuild];
-                // 🛡️ 修復點：如果資料庫裡找不到該公會名稱，回傳錯誤而不是閃退
-                if (!guild) return interaction.reply({ content: `❌ 錯誤：找不到公會「${playerGuild}」的資料。請嘗試重新加入或聯繫管理員。`, ephemeral: true });
+                // 🛡️ 關鍵修復：處理截圖中噴錯的地方
+                if (!guild) {
+                    data.players[userId].guild = null;
+                    db.write(data);
+                    return interaction.reply({ content: '⚠️ 偵測到無效的公會關聯，已為你重置。', ephemeral: true });
+                }
 
-                // 🛡️ 修復點：確保 members 是陣列
-                const membersList = Array.isArray(guild.members) ? guild.members : [];
-                const memberNames = await Promise.all(membersList.map(async id => {
-                    const m = await interaction.guild.members.fetch(id).catch(() => null);
-                    return m ? m.displayName : '未知成員';
+                const memberNames = await Promise.all(guild.members.map(async id => {
+                    const member = await interaction.guild.members.fetch(id).catch(() => null);
+                    return member ? member.displayName : '離線成員';
                 }));
 
                 const infoEmbed = new EmbedBuilder()
                     .setTitle(`🏰 ${playerGuild}`)
                     .setColor(0x3498db)
                     .addFields(
-                        { name: '等級', value: (guild.level || 1).toString(), inline: true },
-                        { name: '經驗值', value: (guild.exp || 0).toString(), inline: true },
-                        { name: '金庫', value: `${guild.treasury || 0} 💎`, inline: true },
-                        { name: '成員數', value: membersList.length.toString(), inline: true },
-                        { name: '會長', value: (await interaction.guild.members.fetch(guild.leader).catch(() => ({ displayName: '未知' }))).displayName, inline: true },
-                        { name: '創建時間', value: `<t:${Math.floor((guild.created || Date.now()) / 1000)}:F>`, inline: true },
-                        { name: '成員列表', value: memberNames.join(', ') || '無成員', inline: false }
+                        { name: '等級', value: guild.level.toString(), inline: true },
+                        { name: '經驗值', value: guild.exp.toString(), inline: true },
+                        { name: '金庫', value: `${guild.treasury} 💎`, inline: true },
+                        { name: '成員列表', value: memberNames.join(', ') }
                     );
                 return interaction.reply({ embeds: [infoEmbed] });
 
             case 'donate':
                 const amount = interaction.options.getInteger('amount');
-                const dName = data.players[userId].guild;
-                if (!dName || !data.guilds[dName]) return interaction.reply({ content: '公會狀態異常！', ephemeral: true });
+                const dGuildName = data.players[userId].guild;
+                if (!dGuildName || !data.guilds[dGuildName]) return interaction.reply('公會數據異常！');
 
-                if (data.players[userId].entropy_crystal < amount) return interaction.reply({ content: '你的熵結晶不足！', ephemeral: true });
+                if (data.players[userId].entropy_crystal < amount) return interaction.reply('你的熵結晶不足！');
 
                 data.players[userId].entropy_crystal -= amount;
-                data.guilds[dName].treasury += amount;
-                data.guilds[dName].exp += amount * 2;
-                
-                // 升級檢查
-                if (data.guilds[dName].exp >= data.guilds[dName].level * 1000) {
-                    data.guilds[dName].level++;
-                    data.guilds[dName].exp = 0;
+                data.guilds[dGuildName].treasury += amount;
+                data.guilds[dGuildName].exp += amount * 2;
+
+                // 升級邏輯
+                if (data.guilds[dGuildName].exp >= data.guilds[dGuildName].level * 1000) {
+                    data.guilds[dGuildName].level++;
+                    data.guilds[dGuildName].exp = 0;
                 }
                 db.write(data);
-                return interaction.reply(`💝 捐獻成功！公會金庫增加了 ${amount} 💎`);
+                return interaction.reply(`💝 捐獻了 ${amount} 💎！`);
 
             case 'build':
-                const bName = data.players[userId].guild;
-                const bData = data.guilds[bName];
-                if (!bData || bData.leader !== userId) return interaction.reply({ content: '權限不足或公會異常！', ephemeral: true });
+                const bGuildName = data.players[userId].guild;
+                const bData = data.guilds[bGuildName];
+                if (!bData || bData.leader !== userId) return interaction.reply('權限不足！');
 
                 const bType = interaction.options.getString('building');
-                const curLv = bData.buildings?.[bType] || 0;
+                if (!bData.buildings) bData.buildings = { workshop: 0, training_ground: 0, library: 0, vault: 0 };
+                
+                const curLv = bData.buildings[bType];
                 const bConf = GUILD_BUILDINGS[bType];
 
-                if (curLv >= 5) return interaction.reply({ content: '該建築已達最高級！', ephemeral: true });
-                if (bData.treasury < bConf.levels[curLv].cost) return interaction.reply({ content: '金庫資源不足！', ephemeral: true });
+                if (curLv >= 5) return interaction.reply('已達最高級！');
+                if (bData.treasury < bConf.levels[curLv].cost) return interaction.reply('金庫不足！');
 
                 bData.treasury -= bConf.levels[curLv].cost;
-                if (!bData.buildings) bData.buildings = {};
-                bData.buildings[bType] = curLv + 1;
+                bData.buildings[bType]++;
                 db.write(data);
-                return interaction.reply(`🏗️ **${bConf.name}** 已升級至 Lv.${curLv + 1}！`);
+                return interaction.reply(`🏗️ **${bConf.name}** 已升級至 Lv.${curLv + 1}`);
 
             case 'quests':
-                const qName = data.players[userId].guild;
-                const qData = data.guilds[qName];
-                if (!qData) return interaction.reply({ content: '找不到公會資料。', ephemeral: true });
+                const qGuildName = data.players[userId].guild;
+                const qData = data.guilds[qGuildName];
+                if (!qData) return interaction.reply('找不到公會資料。');
 
-                const qEmbed = new EmbedBuilder().setTitle(`📋 ${qName} 任務`).setColor(0x9B59B6);
-                Object.entries(qData.quests || GUILD_QUESTS).forEach(([key, q]) => {
+                const qEmbed = new EmbedBuilder().setTitle(`📋 ${qGuildName} 任務清單`).setColor(0x9B59B6);
+                const activeQuests = qData.quests || GUILD_QUESTS;
+
+                Object.entries(activeQuests).forEach(([key, q]) => {
                     qEmbed.addFields({ name: q.name, value: `進度: ${q.progress || 0}/${q.target}\n獎勵: ${q.reward.crystals} 💎` });
                 });
                 return interaction.reply({ embeds: [qEmbed] });
 
             case 'claim':
-                return interaction.reply('獎勵領取功能開發中。');
+                return interaction.reply('獎勵領取功能趕工中...');
         }
     }
 };
